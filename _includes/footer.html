@@ -1,0 +1,27 @@
+<footer class="site-footer">
+  <div class="wrap site-footer__inner">
+    <div class="site-footer__col">
+      <p class="site-footer__title">Haxtun Bulldogs Softball</p>
+      <p>9-12 Girls • {{ site.season }} Season</p>
+      <p>{{ site.home_field }}</p>
+    </div>
+
+    <div class="site-footer__col">
+      <p class="site-footer__title">Coaching Staff</p>
+      <p>Head Coach: {{ site.head_coach }}</p>
+      <p>Assistants: {% for c in site.assistant_coaches %}{{ c }}{% unless forloop.last %}, {% endunless %}{% endfor %}</p>
+    </div>
+
+    <div class="site-footer__col">
+      <p class="site-footer__title">League</p>
+      <p>{{ site.league_name }}</p>
+      <p>President: {{ site.league_president }}</p>
+      <p>Phone: {{ site.league_president_phone }}</p>
+    </div>
+  </div>
+  <div class="site-footer__legal">
+    <div class="wrap">
+      <p>&copy; {{ 'now' | date: "%Y" }} Haxtun Bulldogs Softball. Photos posted only with parental media release on file.</p>
+    </div>
+  </div>
+</footer>
