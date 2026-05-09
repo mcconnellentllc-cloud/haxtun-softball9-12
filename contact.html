@@ -1,0 +1,41 @@
+---
+layout: default
+title: Contact
+eyebrow: Get in Touch
+subtitle: Questions about practice, games, or anything else? Send a note.
+permalink: /contact/
+---
+
+<p>Email the coaches directly: <a href="mailto:{{ site.contact_email }}">{{ site.contact_email }}</a></p>
+
+<form class="form" action="{{ site.formspree_endpoint }}" method="POST">
+  <label for="name">Your name *</label>
+  <input id="name" name="name" type="text" required>
+
+  <label for="email">Email *</label>
+  <input id="email" name="email" type="email" required>
+
+  <label for="player">Player (optional)</label>
+  <input id="player" name="player" type="text" placeholder="First name + last initial">
+
+  <label for="topic">Topic</label>
+  <select id="topic" name="topic">
+    <option>General question</option>
+    <option>Schedule / availability</option>
+    <option>Practice</option>
+    <option>Photo release</option>
+    <option>Other</option>
+  </select>
+
+  <label for="message">Message *</label>
+  <textarea id="message" name="message" required></textarea>
+
+  <button type="submit" class="btn">Send</button>
+</form>
+
+<h2>League President</h2>
+<p>{{ site.league_president }}<br>
+<a href="tel:{{ site.league_president_phone }}">{{ site.league_president_phone }}</a></p>
+
+<h2>Field Location</h2>
+<p>{{ site.home_field }}</p>

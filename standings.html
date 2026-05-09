@@ -1,0 +1,71 @@
+---
+layout: default
+title: Standings
+eyebrow: League Standings
+subtitle: Update _data/standings.yml after each game and re-deploy. Bracket for the league tournament is set from these records.
+permalink: /standings/
+---
+
+<p style="color:#6b6b6b;font-size:.9rem;margin-top:0">
+  Last updated:
+  <strong>{{ site.data.standings.last_updated | date: "%B %-d, %Y" }}</strong>
+</p>
+
+{% assign teams = site.data.standings.teams %}
+{% assign ranked = "" | split: "" %}
+{% for t in teams %}
+  {% assign games = t.w | plus: t.l | plus: t.t %}
+  {% if games == 0 %}
+    {% assign pct_num = 0 %}
+    {% assign pct_str = "—" %}
+  {% else %}
+    {% assign weighted = t.w | times: 1000 | plus: t.t | times: 500 | divided_by: 1 %}
+    {% assign weighted = t.w | times: 1000 %}
+    {% assign t_half = t.t | times: 500 %}
+    {% assign weighted = weighted | plus: t_half %}
+    {% assign pct_num = weighted | divided_by: games %}
+    {% if pct_num >= 1000 %}
+      {% assign pct_str = "1.000" %}
+    {% else %}
+      {% assign pct_padded = pct_num | prepend: "000" %}
+      {% assign pct_len = pct_padded | size %}
+      {% assign start = pct_len | minus: 3 %}
+      {% assign pct_str = pct_padded | slice: start, 3 | prepend: "." %}
+    {% endif %}
+  {% endif %}
+  {% capture row %}{{ pct_num | prepend: "0000000" | slice: -7, 7 }}|{{ t.name }}|{{ t.w }}|{{ t.l }}|{{ t.t }}|{{ pct_str }}{% endcapture %}
+  {% assign ranked = ranked | push: row %}
+{% endfor %}
+{% assign ranked = ranked | sort | reverse %}
+
+<table class="standings-table">
+  <thead>
+    <tr>
+      <th>Team</th>
+      <th class="num">W</th>
+      <th class="num">L</th>
+      <th class="num">T</th>
+      <th class="num">Pct</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in ranked %}
+      {% assign parts = r | split: "|" %}
+      {% assign team_name = parts[1] %}
+      {% assign is_us = false %}
+      {% if team_name == "Haxtun" %}{% assign is_us = true %}{% endif %}
+      <tr{% if is_us %} class="is-us"{% endif %}>
+        <td>{{ team_name }}{% if is_us %} ★{% endif %}</td>
+        <td class="num">{{ parts[2] }}</td>
+        <td class="num">{{ parts[3] }}</td>
+        <td class="num">{{ parts[4] }}</td>
+        <td class="num">{{ parts[5] }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% assign tourney = site.data.schedule.postseason[0] %}
+<div class="callout">
+  <strong>League Tournament:</strong> {{ tourney.date_range }} at {{ tourney.location }}. Bracket seeded from these standings.
+</div>

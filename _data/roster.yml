@@ -1,0 +1,42 @@
+# Haxtun Bulldogs 9-12 — 2026 Roster
+# PRIVACY: First name + last initial only. No DOBs, addresses,
+# phone numbers, or photos in this file. Replace placeholders below
+# with real first-name + last-initial only.
+
+players:
+  - number: 1
+    name: "Player A."
+    position: "Pitcher"
+  - number: 2
+    name: "Player B."
+    position: "Catcher"
+  - number: 3
+    name: "Player C."
+    position: "1B"
+  - number: 4
+    name: "Player D."
+    position: "2B"
+  - number: 5
+    name: "Player E."
+    position: "SS"
+  - number: 6
+    name: "Player F."
+    position: "3B"
+  - number: 7
+    name: "Player G."
+    position: "OF"
+  - number: 8
+    name: "Player H."
+    position: "OF"
+  - number: 9
+    name: "Player I."
+    position: "OF"
+  - number: 10
+    name: "Player J."
+    position: "Utility"
+  - number: 11
+    name: "Player K."
+    position: "Utility"
+  - number: 12
+    name: "Player L."
+    position: "Utility"
