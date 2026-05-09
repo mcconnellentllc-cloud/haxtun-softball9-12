@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if page.title %}{{ page.title }} — {% endif %}{{ site.title }}</title>
+  <meta name="description" content="{{ page.description | default: site.description }}">
+
+  <!-- PWA -->
+  <link rel="manifest" href="{{ '/manifest.json' | relative_url }}">
+  <meta name="theme-color" content="#c8102e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bulldogs">
+  <link rel="apple-touch-icon" href="{{ '/assets/img/icon-192.png' | relative_url }}">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+  {% feed_meta %}
+  {% seo %}
+</head>
+<body>
+  {% include header.html %}
+
+  <main class="main">
+    {% if page.title and page.show_title != false %}
+    <header class="page-header">
+      <div class="wrap">
+        <div class="page-header__eyebrow">{{ page.eyebrow | default: "Bulldogs" }}</div>
+        <h1 class="page-header__title">{{ page.title }}</h1>
+        {% if page.subtitle %}<p class="page-header__sub">{{ page.subtitle }}</p>{% endif %}
+      </div>
+    </header>
+    {% endif %}
+
+    <div class="wrap content">
+      {{ content }}
+    </div>
+  </main>
+
+  {% include footer.html %}
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('{{ "/service-worker.js" | relative_url }}')
+          .catch(function(err) { console.log('SW registration failed', err); });
+      });
+    }
+  </script>
+</body>
+</html>
