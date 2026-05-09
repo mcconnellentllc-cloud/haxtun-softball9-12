@@ -1,0 +1,50 @@
+# Site
+title: Haxtun Bulldogs Softball
+tagline: 9-12 Girls • 2026 Season
+description: Schedule, rules, roster, and updates for the Haxtun Bulldogs 9-12 girls softball team.
+url: "https://mcconnellentllc-cloud.github.io"
+baseurl: "/haxtun-softball9-12"
+season: "2026"
+
+# Coaches
+head_coach: "Emily Anderson"
+assistant_coaches:
+  - "Jordan Hagemeyer"
+  - "Kyle McConnell"
+
+# Contact - TODO: replace with real email and Formspree endpoint
+contact_email: "REPLACE_ME@example.com"
+formspree_endpoint: "https://formspree.io/f/REPLACE_ME"
+
+# League
+league_name: "Northeast Colorado Girls Softball League"
+league_president: "Victoria Dunker"
+league_president_phone: "(970) 580-36??"
+home_field: "Haxtun Baseball Field, Haxtun, CO"
+
+# Build
+markdown: kramdown
+permalink: /:title/
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+
+# Navigation order
+nav:
+  - { title: "Home",        url: "/" }
+  - { title: "Schedule",    url: "/schedule/" }
+  - { title: "Roster",      url: "/roster/" }
+  - { title: "League Rules", url: "/league-rules/" }
+  - { title: "NFHS Rules",  url: "/nfhs-rules/" }
+  - { title: "Practices",   url: "/practices/" }
+  - { title: "Standings",   url: "/standings/" }
+  - { title: "News",        url: "/news/" }
+  - { title: "Gallery",     url: "/gallery/" }
+  - { title: "Contact",     url: "/contact/" }
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md
+  - vendor
+  - build_ics.py
