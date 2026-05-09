@@ -1,0 +1,92 @@
+---
+layout: default
+title: Home
+show_title: false
+permalink: /
+---
+
+<section class="hero">
+  <div class="wrap">
+    <p class="hero__eyebrow">Haxtun Bulldogs Softball • {{ site.season }}</p>
+    <h1 class="hero__title">Built<br>on <em>Grit.</em></h1>
+    <p class="hero__sub">Schedule, roster, league rules, and updates for the Haxtun Bulldogs 9-12 girls softball team. Coached by {{ site.head_coach }}.</p>
+
+    {% assign today_str = 'now' | date: "%Y-%m-%d" %}
+    {% assign next_game = nil %}
+    {% for g in site.data.schedule.games %}
+      {% assign g_str = g.date | date: "%Y-%m-%d" %}
+      {% if g_str >= today_str and g.opponent != "BYE" and next_game == nil %}
+        {% assign next_game = g %}
+      {% endif %}
+    {% endfor %}
+
+    {% if next_game %}
+    <div class="next-game">
+      <div>
+        <span class="next-game__label">Next Game</span>
+        <div class="next-game__date">{{ next_game.date | date: "%b %-d" }}</div>
+        <div class="next-game__meta">{{ next_game.day }} • {{ next_game.time }}</div>
+      </div>
+      <div>
+        <div class="next-game__matchup">
+          {% if next_game.home %}vs {{ next_game.opponent }}{% else %}@ {{ next_game.opponent }}{% endif %}
+        </div>
+        <div class="next-game__meta">{{ next_game.location }}</div>
+      </div>
+      <div class="next-game__badge">
+        {% if next_game.home %}Home{% else %}Away{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="cards">
+    <a class="card" href="{{ '/assets/calendar/haxtun-bulldogs-2026.ics' | relative_url }}" download>
+      <h3>📅 Add to Calendar</h3>
+      <p>Every game on your phone. Reminders 1 day + 2 hours before.</p>
+      <p><span class="card__arrow">↓</span></p>
+    </a>
+    <a class="card" href="{{ '/schedule/' | relative_url }}">
+      <h3>Schedule</h3>
+      <p>Full {{ site.season }} season + tournament dates</p>
+      <p><span class="card__arrow">→</span></p>
+    </a>
+    <a class="card" href="{{ '/league-rules/' | relative_url }}">
+      <h3>League Rules</h3>
+      <p>The 18 highlighted rules for {{ site.season }}</p>
+      <p><span class="card__arrow">→</span></p>
+    </a>
+    <a class="card" href="{{ '/nfhs-rules/' | relative_url }}">
+      <h3>NFHS Rules</h3>
+      <p>Quick reference + official links</p>
+      <p><span class="card__arrow">→</span></p>
+    </a>
+    <a class="card" href="{{ '/practices/' | relative_url }}">
+      <h3>Practices</h3>
+      <p>This week's plan + what to bring</p>
+      <p><span class="card__arrow">→</span></p>
+    </a>
+    <a class="card" href="{{ '/roster/' | relative_url }}">
+      <h3>Roster</h3>
+      <p>The {{ site.season }} Bulldogs lineup</p>
+      <p><span class="card__arrow">→</span></p>
+    </a>
+    <a class="card" href="{{ '/news/' | relative_url }}">
+      <h3>Announcements</h3>
+      <p>Latest team updates</p>
+      <p><span class="card__arrow">→</span></p>
+    </a>
+  </div>
+
+  <h2>Latest Announcements</h2>
+  <ul class="news-list">
+    {% for post in site.posts limit:3 %}
+    <li>
+      <time datetime="{{ post.date | date_to_xmlschema }}">{{ post.date | date: "%b %-d, %Y" }}</time>
+      <a href="{{ post.url | relative_url }}">{{ post.title }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
