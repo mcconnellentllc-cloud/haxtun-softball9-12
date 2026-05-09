@@ -1,0 +1,24 @@
+---
+layout: default
+title: Announcements
+eyebrow: News
+subtitle: Team updates, schedule changes, and season notes from the coaches.
+permalink: /news/
+---
+
+{% if site.posts.size == 0 %}
+  <p>No announcements yet — check back soon.</p>
+{% else %}
+  <ul class="news-list">
+    {% for post in site.posts %}
+    <li>
+      <time datetime="{{ post.date | date_to_xmlschema }}">{{ post.date | date: "%B %-d, %Y" }}</time>
+      <a href="{{ post.url | relative_url }}">{{ post.title }}</a>
+      {% assign excerpt = post.excerpt | strip_html | strip_newlines %}
+      {% if excerpt != "" %}
+        <p style="color:#6b6b6b;margin:.4rem 0 0">{{ excerpt | truncate: 160 }}</p>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+{% endif %}

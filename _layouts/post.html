@@ -1,0 +1,10 @@
+---
+layout: default
+---
+<article class="post">
+  <p class="post__date">{{ page.date | date: "%B %-d, %Y" }}</p>
+  <div class="post__body">
+    {{ content }}
+  </div>
+  <p class="post__back"><a href="{{ '/news/' | relative_url }}">← All announcements</a></p>
+</article>

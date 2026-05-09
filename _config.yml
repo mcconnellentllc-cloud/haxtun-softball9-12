@@ -12,14 +12,9 @@ assistant_coaches:
   - "Jordan Hagemeyer"
   - "Kyle McConnell"
 
-# Contact - TODO: replace with real email and Formspree endpoint
-contact_email: "REPLACE_ME@example.com"
-formspree_endpoint: "https://formspree.io/f/REPLACE_ME"
-
 # League
 league_name: "Northeast Colorado Girls Softball League"
 league_president: "Victoria Dunker"
-league_president_phone: "(970) 580-36??"
 home_field: "Haxtun Baseball Field, Haxtun, CO"
 
 # Build
@@ -40,7 +35,6 @@ nav:
   - { title: "Standings",   url: "/standings/" }
   - { title: "News",        url: "/news/" }
   - { title: "Gallery",     url: "/gallery/" }
-  - { title: "Contact",     url: "/contact/" }
 
 exclude:
   - Gemfile

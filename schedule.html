@@ -1,0 +1,81 @@
+---
+layout: default
+title: Schedule
+eyebrow: 2026 Season
+subtitle: All games at 6:00 PM. Home games at Haxtun Baseball Field. Updated as results come in.
+permalink: /schedule/
+---
+
+<p style="margin:0 0 1.5rem">
+  <a class="btn" href="{{ '/assets/calendar/haxtun-bulldogs-2026.ics' | relative_url }}" download>📅 Add Schedule to Calendar</a>
+</p>
+
+<div class="callout">
+  <strong>iPhone / iPad:</strong> Tap the button above. iOS opens the file in Calendar — pick the calendar to add it to and tap <em>Add All</em>. Each game gets reminders <strong>1 day before</strong> and <strong>2 hours before</strong>.<br>
+  <strong>Android:</strong> Tap to download, then open with Google Calendar.<br>
+  <strong>Desktop:</strong> Double-click the downloaded <code>.ics</code> file.
+</div>
+
+<table class="schedule-table">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Opponent</th>
+      <th>Location</th>
+      <th>H/A</th>
+      <th>Result</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for g in site.data.schedule.games %}
+    <tr>
+      <td>
+        <strong>{{ g.date | date: "%a %b %-d" }}</strong><br>
+        <span style="color:#6b6b6b;font-size:.88rem">{{ g.time }}</span>
+      </td>
+      <td>{% if g.opponent == "BYE" %}<em style="color:#888">BYE WEEK</em>{% else %}{{ g.opponent }}{% endif %}{% if g.notes != "" %}<br><span style="color:#6b6b6b;font-size:.85rem">{{ g.notes }}</span>{% endif %}</td>
+      <td>{{ g.location }}</td>
+      <td>
+        {% if g.opponent == "BYE" %}
+          <span class="tag tag--bye">Bye</span>
+        {% elsif g.home %}
+          <span class="tag tag--home">Home</span>
+        {% else %}
+          <span class="tag tag--away">Away</span>
+        {% endif %}
+      </td>
+      <td><strong>{{ g.result | default: "—" }}</strong></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>{{ site.data.schedule.deadline }}</strong>
+</div>
+
+<h2>Postseason</h2>
+<table class="schedule-table">
+  <thead>
+    <tr><th>Dates</th><th>Event</th><th>Location</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    {% for p in site.data.schedule.postseason %}
+    <tr>
+      <td><strong>{{ p.date_range }}</strong></td>
+      <td>{{ p.event }}</td>
+      <td>{{ p.location }}</td>
+      <td style="color:#6b6b6b;font-size:.92rem">{{ p.notes }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Game-Day Reminders</h2>
+<ul>
+  <li>Players arrive 30 minutes before first pitch</li>
+  <li>Helmets required at all times while batter is on the playing field</li>
+  <li>Catchers must wear full gear: mask, chest protector, shin guards</li>
+  <li>Steel cleats <strong>not allowed</strong> for 9-12</li>
+  <li>9-12 uses an 11" ball</li>
+</ul>
