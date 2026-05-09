@@ -21,15 +21,7 @@ Already wired. Repo Settings → Pages → Source: deploy from branch →
 
 ## Before going live
 
-Search the repo for `REPLACE_ME` and fill in:
-
-| What | Where |
-|---|---|
-| Coach contact email | `_config.yml` → `contact_email` |
-| Formspree endpoint for the contact form | `_config.yml` → `formspree_endpoint` |
-| League president's full phone (last digit was cut off in the source image) | `_config.yml` → `league_president_phone` |
-
-Also replace the placeholder roster in `_data/roster.yml` with real
+Replace the placeholder roster in `_data/roster.yml` with real
 **first name + last initial** only — no full last names, no DOBs, no
 photos, no contact info.
 
@@ -120,7 +112,6 @@ practices.html
 standings.html
 news.html
 gallery.html
-contact.html
 404.html
 manifest.json
 service-worker.js
