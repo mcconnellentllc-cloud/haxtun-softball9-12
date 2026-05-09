@@ -1,0 +1,109 @@
+# Haxtun Bulldogs 9-12 — 2026 Season
+# All game times 6:00 PM unless noted
+# home: true means we are home team
+# Use ISO date YYYY-MM-DD
+
+games:
+  - date: 2026-05-19
+    day: "Tue"
+    time: "6:00 PM"
+    opponent: "Sidney"
+    location: "Haxtun Baseball Field"
+    home: true
+    result: ""        # Fill in after game: "W 12-4" or "L 5-8"
+    notes: "Season opener"
+
+  - date: 2026-05-21
+    day: "Thu"
+    time: "6:00 PM"
+    opponent: "Holyoke"
+    location: "Holyoke, CO"
+    home: false
+    result: ""
+    notes: ""
+
+  - date: 2026-05-26
+    day: "Tue"
+    time: "6:00 PM"
+    opponent: "Imperial"
+    location: "Haxtun Baseball Field"
+    home: true
+    result: ""
+    notes: ""
+
+  - date: 2026-05-28
+    day: "Thu"
+    time: "6:00 PM"
+    opponent: "Oshkosh"
+    location: "Haxtun Baseball Field"
+    home: true
+    result: ""
+    notes: ""
+
+  - date: 2026-06-02
+    day: "Tue"
+    time: "6:00 PM"
+    opponent: "Ogallala"
+    location: "Haxtun Baseball Field"
+    home: true
+    result: ""
+    notes: ""
+
+  - date: 2026-06-04
+    day: "Thu"
+    time: "6:00 PM"
+    opponent: "Sedgwick County"
+    location: "Julesburg, CO"
+    home: false
+    result: ""
+    notes: ""
+
+  - date: 2026-06-09
+    day: "Tue"
+    time: "6:00 PM"
+    opponent: "Grant"
+    location: "Haxtun Baseball Field"
+    home: true
+    result: ""
+    notes: ""
+
+  - date: 2026-06-11
+    day: "Thu"
+    time: ""
+    opponent: "BYE"
+    location: ""
+    home: null
+    result: ""
+    notes: "Bye week"
+
+  - date: 2026-06-16
+    day: "Tue"
+    time: "6:00 PM"
+    opponent: "Yuma"
+    location: "Yuma, CO"
+    home: false
+    result: ""
+    notes: ""
+
+  - date: 2026-06-18
+    day: "Thu"
+    time: "6:00 PM"
+    opponent: "Sidney"
+    location: "Sidney, NE"
+    home: false
+    result: ""
+    notes: "Final regular-season game"
+
+# Tournament + post-season
+postseason:
+  - date_range: "June 22-24, 2026"
+    event: "League Tournament"
+    location: "Holyoke, CO"
+    notes: "Bracket based on regular-season records. No time limit on Championship games."
+
+  - date_range: "June 28, 2026"
+    event: "All-Star Game"
+    location: "Holyoke, CO"
+    notes: "All-Stars announced on the last day of the tournament."
+
+deadline: "All regular-season games must be played by June 19, 2026."
