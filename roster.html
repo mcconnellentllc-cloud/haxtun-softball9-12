@@ -1,0 +1,34 @@
+---
+layout: default
+title: Roster
+eyebrow: 2026 Bulldogs
+subtitle: First name and last initial only — privacy first for our 9-12 players.
+permalink: /roster/
+---
+
+<div class="roster-grid">
+  {% assign sorted = site.data.roster.players | sort: "number" %}
+  {% for p in sorted %}
+  <div class="roster-card">
+    <div class="roster-card__num">#{{ p.number }}</div>
+    <div class="roster-card__name">{{ p.name }}</div>
+    <div class="roster-card__pos">{{ p.position }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<h2>Coaching Staff</h2>
+<div class="roster-grid">
+  <div class="roster-card">
+    <div class="roster-card__num">HC</div>
+    <div class="roster-card__name">{{ site.head_coach }}</div>
+    <div class="roster-card__pos">Head Coach</div>
+  </div>
+  {% for c in site.assistant_coaches %}
+  <div class="roster-card">
+    <div class="roster-card__num">AC</div>
+    <div class="roster-card__name">{{ c }}</div>
+    <div class="roster-card__pos">Assistant Coach</div>
+  </div>
+  {% endfor %}
+</div>
