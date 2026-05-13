@@ -1,42 +1,57 @@
 # Haxtun Bulldogs 9-12 — 2026 Roster
 # PRIVACY: First name + last initial only. No DOBs, addresses,
-# phone numbers, or photos in this file. Replace placeholders below
-# with real first-name + last-initial only.
+# phone numbers, parent names, or photos in this file.
+#
+# Jersey numbers below are sequential placeholders in roster order.
+# Replace `number:` with real jersey numbers when set.
+# Positions are TBD — fill in as the coaches assign.
 
 players:
   - number: 1
-    name: "Player A."
-    position: "Pitcher"
+    name: "Victoria C."
+    position: "TBD"
   - number: 2
-    name: "Player B."
-    position: "Catcher"
+    name: "Aisley F."
+    position: "TBD"
   - number: 3
-    name: "Player C."
-    position: "1B"
+    name: "Cadence K."
+    position: "TBD"
   - number: 4
-    name: "Player D."
-    position: "2B"
+    name: "Kortlyn C."
+    position: "TBD"
   - number: 5
-    name: "Player E."
-    position: "SS"
+    name: "Phoenix B."
+    position: "TBD"
   - number: 6
-    name: "Player F."
-    position: "3B"
+    name: "Crisbel G."
+    position: "TBD"
   - number: 7
-    name: "Player G."
-    position: "OF"
+    name: "Amber E."
+    position: "TBD"
   - number: 8
-    name: "Player H."
-    position: "OF"
+    name: "Palmer H."
+    position: "TBD"
   - number: 9
-    name: "Player I."
-    position: "OF"
+    name: "Waylyn H."
+    position: "TBD"
   - number: 10
-    name: "Player J."
-    position: "Utility"
+    name: "Tyndle M."
+    position: "TBD"
   - number: 11
-    name: "Player K."
-    position: "Utility"
+    name: "Delaney P."
+    position: "TBD"
   - number: 12
-    name: "Player L."
-    position: "Utility"
+    name: "Pyper J."
+    position: "TBD"
+  - number: 13
+    name: "Maddie B."
+    position: "TBD"
+  - number: 14
+    name: "Kyla W."
+    position: "TBD"
+  - number: 15
+    name: "Tyla M."
+    position: "TBD"
+  - number: 16
+    name: "Oakley M."
+    position: "TBD"
