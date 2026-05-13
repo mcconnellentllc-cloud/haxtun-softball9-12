@@ -48,6 +48,15 @@ permalink: /
       <p>Every game on your phone. Reminders 1 day + 2 hours before.</p>
       <p><span class="card__arrow">↓</span></p>
     </a>
+    <button class="card" type="button" id="share-btn"
+            style="font:inherit;text-align:left;width:100%;cursor:pointer"
+            data-share-url="{{ '/' | absolute_url }}"
+            data-share-title="{{ site.title }}"
+            data-share-text="{{ site.description }}">
+      <h3>📤 Share This Site</h3>
+      <p id="share-text">Send the link to other Bulldogs families.</p>
+      <p><span class="card__arrow" id="share-arrow">↗</span></p>
+    </button>
     <a class="card" href="{{ '/schedule/' | relative_url }}">
       <h3>Schedule</h3>
       <p>Full {{ site.season }} season + tournament dates</p>
@@ -79,6 +88,51 @@ permalink: /
       <p><span class="card__arrow">→</span></p>
     </a>
   </div>
+
+  <script>
+    (function(){
+      var btn = document.getElementById('share-btn');
+      if(!btn) return;
+      var textEl = document.getElementById('share-text');
+      var arrowEl = document.getElementById('share-arrow');
+      var originalText = textEl.textContent;
+      var originalArrow = arrowEl.textContent;
+      var resetTimer;
+      function flash(msg){
+        textEl.textContent = msg;
+        arrowEl.textContent = '✓';
+        clearTimeout(resetTimer);
+        resetTimer = setTimeout(function(){
+          textEl.textContent = originalText;
+          arrowEl.textContent = originalArrow;
+        }, 2000);
+      }
+      btn.addEventListener('click', async function(){
+        var url = btn.dataset.shareUrl;
+        var title = btn.dataset.shareTitle;
+        var text = btn.dataset.shareText;
+        try {
+          if(navigator.share){
+            await navigator.share({title:title, text:text, url:url});
+            return;
+          }
+          if(navigator.clipboard && navigator.clipboard.writeText){
+            await navigator.clipboard.writeText(url);
+            flash('Link copied to clipboard');
+            return;
+          }
+          var ta = document.createElement('textarea');
+          ta.value = url; ta.setAttribute('readonly','');
+          ta.style.position = 'absolute'; ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          flash('Link copied to clipboard');
+        } catch(e){ /* user cancelled — silent */ }
+      });
+    })();
+  </script>
 
   <h2>Latest Announcements</h2>
   <ul class="news-list">
