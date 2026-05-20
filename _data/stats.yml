@@ -24,7 +24,9 @@ batting:
   - { num: 21, name: "Phoenix B.",  gp: 1, ab: 1, r: 1, h: 0, rbi: 0, bb: 2, so: 0, avg: ".000", obp: ".667" }
   - { num: 22, name: "Tyndle M.",   gp: 1, ab: 3, r: 1, h: 2, rbi: 1, bb: 0, so: 1, avg: ".667", obp: ".667" }
   - { num: 23, name: "",            gp: 1, ab: 1, r: 0, h: 0, rbi: 0, bb: 1, so: 1, avg: ".000", obp: ".500", hidden: true }
-  - { num: 24, name: "Maddie B.",   gp: 0, ab: 0, r: 0, h: 0, rbi: 0, bb: 0, so: 0, avg: "—",    obp: "—" }
+  # Maddie played defense but had no plate appearances (GameChanger export
+  # showed GP 0; corrected to 1 since she was in the game).
+  - { num: 24, name: "Maddie B.",   gp: 1, ab: 0, r: 0, h: 0, rbi: 0, bb: 0, so: 0, avg: "—",    obp: "—" }
 
 batting_totals:
   gp: 1
