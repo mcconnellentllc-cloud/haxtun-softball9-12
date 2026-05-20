@@ -33,6 +33,7 @@ nav:
   - { title: "NFHS Rules",  url: "/nfhs-rules/" }
   - { title: "Practices",   url: "/practices/" }
   - { title: "Standings",   url: "/standings/" }
+  - { title: "Stats",       url: "/stats/" }
   - { title: "News",        url: "/news/" }
   - { title: "Gallery",     url: "/gallery/" }
 
