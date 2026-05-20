@@ -10,7 +10,7 @@ games:
     opponent: "Sidney"
     location: "Haxtun Baseball Field"
     home: true
-    result: ""        # Fill in after game: "W 12-4" or "L 5-8"
+    result: "L 5-8"
     notes: "Season opener"
 
   - date: 2026-05-21
