@@ -11,7 +11,7 @@ permalink: /roster/
   {% for p in sorted %}
   <div class="roster-card">
     <div class="roster-card__num">#{{ p.number }}</div>
-    <div class="roster-card__name">{{ p.name }}</div>
+    <div class="roster-card__name">{% if p.hidden %}<span style="color:#999">—</span>{% else %}{{ p.name }}{% endif %}</div>
     <div class="roster-card__pos">{{ p.position }}</div>
   </div>
   {% endfor %}

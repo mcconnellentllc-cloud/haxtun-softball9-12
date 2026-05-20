@@ -2,56 +2,59 @@
 # PRIVACY: First name + last initial only. No DOBs, addresses,
 # phone numbers, parent names, or photos in this file.
 #
-# Jersey numbers below are sequential placeholders in roster order.
-# Replace `number:` with real jersey numbers when set.
-# Positions are TBD — fill in as the coaches assign.
+# Jersey numbers are real (from GameChanger). Positions are TBD.
+#
+# #23 is intentionally name-withheld at the family's request
+# (hidden: true). Do NOT add her name to this PUBLIC file — her full
+# name lives only in the private coaches portal.
 
 players:
   - number: 1
-    name: "Victoria C."
-    position: "TBD"
-  - number: 2
-    name: "Aisley F."
-    position: "TBD"
-  - number: 3
-    name: "Cadence K."
-    position: "TBD"
-  - number: 4
-    name: "Kortlyn C."
-    position: "TBD"
-  - number: 5
-    name: "Phoenix B."
-    position: "TBD"
-  - number: 6
-    name: "Crisbel G."
-    position: "TBD"
-  - number: 7
-    name: "Amber E."
-    position: "TBD"
-  - number: 8
-    name: "Palmer H."
-    position: "TBD"
-  - number: 9
-    name: "Waylyn H."
-    position: "TBD"
-  - number: 10
-    name: "Tyndle M."
-    position: "TBD"
-  - number: 11
-    name: "Delaney P."
-    position: "TBD"
-  - number: 12
-    name: "Pyper J."
-    position: "TBD"
-  - number: 13
-    name: "Maddie B."
-    position: "TBD"
-  - number: 14
     name: "Kyla W."
     position: "TBD"
-  - number: 15
-    name: "Tyla M."
+  - number: 2
+    name: "Pyper J."
     position: "TBD"
-  - number: 16
+  - number: 3
+    name: "Kortlyn C."
+    position: "TBD"
+  - number: 4
+    name: "Amber E."
+    position: "TBD"
+  - number: 5
+    name: "Victoria C."
+    position: "TBD"
+  - number: 6
+    name: "Waylyn H."
+    position: "TBD"
+  - number: 7
     name: "Oakley M."
+    position: "TBD"
+  - number: 8
+    name: "Aisley F."
+    position: "TBD"
+  - number: 9
+    name: "Delaney P."
+    position: "TBD"
+  - number: 11
+    name: "Crisbel G."
+    position: "TBD"
+  - number: 19
+    name: "Tayla M."
+    position: "TBD"
+  - number: 20
+    name: "Palmer H."
+    position: "TBD"
+  - number: 21
+    name: "Phoenix B."
+    position: "TBD"
+  - number: 22
+    name: "Tyndle M."
+    position: "TBD"
+  - number: 23
+    name: ""
+    position: "TBD"
+    hidden: true
+  - number: 24
+    name: "Maddie B."
     position: "TBD"
