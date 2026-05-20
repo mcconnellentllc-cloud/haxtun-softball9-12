@@ -1,12 +1,16 @@
 <header class="site-header">
   <div class="wrap site-header__inner">
-    <a href="{{ '/' | relative_url }}" class="brand">
-      <span class="brand__mark">H</span>
-      <span class="brand__text">
+    <div class="brand">
+      {% if site.coaches_portal_url and site.coaches_portal_url != "" %}
+      <a href="{{ site.coaches_portal_url }}" class="brand__mark" aria-label="Coaches portal" rel="nofollow">H</a>
+      {% else %}
+      <a href="{{ '/' | relative_url }}" class="brand__mark" aria-label="Home">H</a>
+      {% endif %}
+      <a href="{{ '/' | relative_url }}" class="brand__text">
         <span class="brand__name">Haxtun Bulldogs</span>
         <span class="brand__sub">9-12 Softball • {{ site.season }}</span>
-      </span>
-    </a>
+      </a>
+    </div>
 
     <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="primary-nav">
       <span></span><span></span><span></span>

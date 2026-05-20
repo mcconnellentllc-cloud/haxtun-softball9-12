@@ -1,0 +1,21 @@
+import { NextRequest, NextResponse } from "next/server";
+import { setStateValue, logActivity } from "@/lib/airtable";
+
+export const dynamic = "force-dynamic";
+
+// Body is the full lineups JSON object (both A and B teams). Replaces Value.
+export async function PUT(req: NextRequest) {
+  const body = await req.json().catch(() => null);
+  if (body == null || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json(
+      { error: "Body must be the full lineups object" },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  await setStateValue("lineups", body);
+  await logActivity(req.headers.get("x-coach") ?? "Unknown", "update_lineups");
+  return NextResponse.json(
+    { ok: true },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
