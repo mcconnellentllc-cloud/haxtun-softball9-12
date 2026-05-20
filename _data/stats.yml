@@ -24,20 +24,22 @@ batting:
   - { num: 21, name: "Phoenix B.",  gp: 1, ab: 1, r: 1, h: 0, rbi: 0, bb: 2, so: 0, avg: ".000", obp: ".667" }
   - { num: 22, name: "Tyndle M.",   gp: 1, ab: 3, r: 1, h: 2, rbi: 1, bb: 0, so: 1, avg: ".667", obp: ".667" }
   - { num: 23, name: "",            gp: 1, ab: 1, r: 0, h: 0, rbi: 0, bb: 1, so: 1, avg: ".000", obp: ".500", hidden: true }
-  # Maddie played defense but had no plate appearances (GameChanger export
-  # showed GP 0; corrected to 1 since she was in the game).
-  - { num: 24, name: "Maddie B.",   gp: 1, ab: 0, r: 0, h: 0, rbi: 0, bb: 0, so: 0, avg: "—",    obp: "—" }
+  # Maddie had one plate appearance (strikeout). The GameChanger export
+  # omitted it (showed GP 0); corrected here per the coach.
+  - { num: 24, name: "Maddie B.",   gp: 1, ab: 1, r: 0, h: 0, rbi: 0, bb: 0, so: 1, avg: ".000", obp: ".000" }
 
+# Totals include Maddie's strikeout, so they run one AB / one SO ahead of
+# the raw GameChanger export (AB 15 / SO 10 vs GC's 14 / 9).
 batting_totals:
   gp: 1
-  ab: 14
+  ab: 15
   r: 5
   h: 2
   rbi: 5
   bb: 13
-  so: 9
-  avg: ".143"
-  obp: ".586"
+  so: 10
+  avg: ".133"
+  obp: ".567"
 
 pitching:
   - { num: 3, name: "Kortlyn C.", ip: "4.0", h: 6, r: 8, er: 7, bb: 7, so: 10, era: "10.50", whip: "3.250", w: 0, l: 1 }
