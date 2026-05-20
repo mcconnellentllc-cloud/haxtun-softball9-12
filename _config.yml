@@ -6,6 +6,11 @@ url: "https://mcconnellentllc-cloud.github.io"
 baseurl: "/haxtun-softball9-12"
 season: "2026"
 
+# Coaches portal (separate Next.js app deployed on Vercel). Once deployed,
+# paste the URL here and the red "H" logo becomes a hidden link to it.
+# Leave blank until then — the H falls back to linking home.
+coaches_portal_url: ""
+
 # Coaches
 head_coach: "Emily Anderson"
 assistant_coaches:
@@ -43,3 +48,4 @@ exclude:
   - README.md
   - vendor
   - build_ics.py
+  - coaches-portal

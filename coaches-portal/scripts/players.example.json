@@ -1,0 +1,18 @@
+[
+  { "firstName": "Kyla",     "lastName": "W.", "jersey": 1 },
+  { "firstName": "Pyper",    "lastName": "J.", "jersey": 2 },
+  { "firstName": "Kortlyn",  "lastName": "C.", "jersey": 3 },
+  { "firstName": "Amber",    "lastName": "E.", "jersey": 4 },
+  { "firstName": "Victoria", "lastName": "C.", "jersey": 5 },
+  { "firstName": "Waylyn",   "lastName": "H.", "jersey": 6 },
+  { "firstName": "Oakley",   "lastName": "M.", "jersey": 7 },
+  { "firstName": "Aisley",   "lastName": "F.", "jersey": 8 },
+  { "firstName": "Delaney",  "lastName": "P.", "jersey": 9 },
+  { "firstName": "Crisbel",  "lastName": "G.", "jersey": 11 },
+  { "firstName": "Tayla",    "lastName": "M.", "jersey": 19 },
+  { "firstName": "Palmer",   "lastName": "H.", "jersey": 20 },
+  { "firstName": "Phoenix",  "lastName": "B.", "jersey": 21 },
+  { "firstName": "Tyndle",   "lastName": "M.", "jersey": 22 },
+  { "firstName": "Cadence",  "lastName": "K.", "jersey": 23 },
+  { "firstName": "Maddie",   "lastName": "B.", "jersey": 24 }
+]

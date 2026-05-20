@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+build/
+.DS_Store
+
+# secrets — never commit
+.env
+.env.local
+.env*.local
+
+# PWA generated artifacts
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+public/workbox-*.js
+public/workbox-*.js.map
+
+# real roster with full names — keep out of the public repo.
+# Only scripts/players.example.json (first-initial only) is committed.
+scripts/players.json
+scripts/players.local.json
