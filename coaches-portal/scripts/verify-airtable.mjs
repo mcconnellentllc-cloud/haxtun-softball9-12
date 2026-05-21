@@ -34,6 +34,26 @@ async function get(url) {
   return JSON.parse(text);
 }
 
+// Read-only count of the Players table. Requests ONLY the "First Name" field
+// so player last names never enter this environment (privacy by design).
+async function countPlayers(tables) {
+  if (!tables.some((t) => t.name === "Players")) {
+    return { exists: false, count: 0, firstNames: [] };
+  }
+  const firstNames = [];
+  let offset;
+  do {
+    let url = `${API}/${BASE}/Players?pageSize=100&fields%5B%5D=First%20Name`;
+    if (offset) url += `&offset=${encodeURIComponent(offset)}`;
+    const data = await get(url);
+    for (const r of data.records) {
+      firstNames.push(String(r.fields["First Name"] ?? "?"));
+    }
+    offset = data.offset;
+  } while (offset);
+  return { exists: true, count: firstNames.length, firstNames };
+}
+
 // Expected schema, mirroring coaches-portal/SETUP.md + the field labels used
 // in lib/airtable.ts. Optional fields/tables are flagged so their absence is
 // reported as a note, not a failure.
@@ -138,6 +158,24 @@ async function main() {
       for (const n of notes) console.log(`  ~ ${n}`);
     }
   }
+  console.log("\n== Phase 2.75 helper: Players table must be empty (read-only) ==");
+  const players = await countPlayers(tables);
+  if (!players.exists) {
+    console.log("Players table not found — see the schema report above.");
+  } else if (players.count === 0) {
+    console.log("Players table is empty. Safe to proceed to Phase 3 (seed).");
+  } else {
+    console.log(
+      `STOP: Players table already has ${players.count} record(s) — do NOT seed.`,
+    );
+    // First names only (last names were never fetched). First names are within
+    // the repo's allowed disclosure; this is session output, never committed.
+    console.log(`Sample first names: ${players.firstNames.slice(0, 20).join(", ")}`);
+    console.log(
+      "Investigate before seeding (e.g. leftover example-seed ghost records).",
+    );
+  }
+
   console.log("\nNo changes were made to the base.");
 }
 
