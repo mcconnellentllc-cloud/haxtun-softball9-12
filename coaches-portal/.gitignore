@@ -4,6 +4,10 @@ out/
 build/
 .DS_Store
 
+# TypeScript / Next.js generated
+*.tsbuildinfo
+next-env.d.ts
+
 # secrets — never commit
 .env
 .env.local
