@@ -74,10 +74,27 @@ they're designed.
 
 ---
 
-## 4. Environment variables
+## 4. Required environment variables
 
-Copy `.env.example` to `.env` for local dev, and add the same four to
-Vercel (Project → Settings → Environment Variables):
+The portal needs five variables. **Four are app env vars** (set them in
+local `.env` *and* on Vercel). **One is CLI-only** and must never become an
+app env var.
+
+### App env vars — local `.env` + Vercel (Project → Settings → Environment Variables)
+
+| Variable | Purpose |
+|---|---|
+| `AIRTABLE_API_KEY` | Airtable personal access token, scoped to the Bulldogs base only |
+| `AIRTABLE_BASE_ID` | The target base (`app...`) |
+| `PORTAL_PASSWORD` | Shared coach login password — the portal's only real access control |
+| `SESSION_SECRET` | Signing key for the session cookie; generate with `openssl rand -hex 32` |
+
+`PORTAL_PASSWORD` and `SESSION_SECRET` are **both required**, not optional:
+
+- Without `SESSION_SECRET`, **every route returns 500** — the middleware
+  verifies the session cookie on each request (`lib/auth.ts`).
+- Without `PORTAL_PASSWORD`, login returns `500 Server not configured`
+  (`app/api/auth/login/route.ts`).
 
 ```
 AIRTABLE_API_KEY=patXXXX
@@ -86,8 +103,22 @@ PORTAL_PASSWORD=<the shared coaches password>
 SESSION_SECRET=<openssl rand -hex 32>
 ```
 
-`PORTAL_PASSWORD` is the only real security — pick something the coaches
-will remember but outsiders won't guess. Never commit `.env`.
+Copy `.env.example` to `.env` for local dev and fill these in. Pick a
+`PORTAL_PASSWORD` the coaches remember but outsiders won't guess. Never
+commit `.env` (it's gitignored).
+
+### CLI-only — never an app env var
+
+| Variable | Purpose |
+|---|---|
+| `VERCEL_TOKEN` | Authenticates `npx vercel` for deploys. Used by the CLI only — do **not** add it to the Vercel project's env vars. |
+
+### Vercel deploy specifics (details in section 6)
+
+- Project **Root Directory = `coaches-portal`** — so Vercel builds the
+  Next.js app, not the Jekyll site.
+- After the first deploy, paste the production URL into the public site's
+  `_config.yml` → `coaches_portal_url`.
 
 ---
 
