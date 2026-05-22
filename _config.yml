@@ -40,7 +40,6 @@ nav:
   - { title: "Standings",   url: "/standings/" }
   - { title: "Stats",       url: "/stats/" }
   - { title: "News",        url: "/news/" }
-  - { title: "Gallery",     url: "/gallery/" }
 
 exclude:
   - Gemfile
