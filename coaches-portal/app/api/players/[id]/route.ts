@@ -5,7 +5,7 @@ import {
   setStateValue,
   logActivity,
 } from "@/lib/airtable";
-import { stripFromDepth, stripFromLineups } from "@/lib/lineup-cleanup";
+import { stripFromDepth, stripFromSquads } from "@/lib/lineup-cleanup";
 import { withErrorHandling } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -55,10 +55,10 @@ export const DELETE = withErrorHandling(async (
   // Soft delete the player...
   await updatePlayer(id, { active: false });
 
-  // ...then scrub them from the depth chart and every lineup slot.
+  // ...then scrub them from the depth chart and the squad rosters.
   const state = await getState();
   await setStateValue("depth_chart", stripFromDepth(state.depth_chart, id));
-  await setStateValue("lineups", stripFromLineups(state.lineups, id));
+  await setStateValue("squads", stripFromSquads(state.squads, id));
 
   await logActivity(
     req.headers.get("x-coach") ?? "Unknown",

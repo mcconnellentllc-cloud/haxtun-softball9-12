@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SCHEDULE, gameLabel, defaultGameDate } from "@/lib/schedule";
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -17,9 +18,9 @@ type DepthChart = Record<string, string[]>;
 // coach name -> that coach's overall (persistent) depth chart
 type CoachDepths = Record<string, DepthChart>;
 
-type Choice = "A" | "B";
-type Lineups = {
-  A: string[]; // batting order, player ids
+// The two squads. A/B each hold the player ids carried on that team.
+type Squads = {
+  A: string[];
   B: string[];
 };
 
@@ -33,7 +34,7 @@ type GamePlan = {
   subs: string[]; // bench, rotate in (~1 at-bat)
 };
 
-// Each game carries two interchangeable plan options, A and B.
+// Each game carries a plan per squad: one for the A team, one for the B team.
 type Side = "A" | "B";
 type GamePlanAB = Record<Side, GamePlan>;
 
@@ -53,14 +54,14 @@ type Notes = Record<string, string>;
 const POSITIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"] as const;
 const COACHES = ["Kyle", "Jordan", "Emily"] as const;
 const INNINGS = 5;
-const TABS = ["roster", "depth", "lineups", "compare", "plan"] as const;
+const TABS = ["roster", "teams", "depth", "compare", "plan"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   roster: "Roster",
+  teams: "Teams",
   depth: "Depth Chart",
-  lineups: "Lineups",
-  compare: "Compare",
+  compare: "Propose",
   plan: "Game Plan",
 };
 
@@ -72,11 +73,11 @@ function meetsMinimum(field: number, atBats: number): boolean {
 
 const COACH_KEY = "bulldogs-coach";
 
-// Quick link to the team's stats (GameChanger). Override with
+// Quick link to the team's stats page on the public site. Override with
 // NEXT_PUBLIC_STATS_URL if it ever moves.
 const STATS_URL =
   process.env.NEXT_PUBLIC_STATS_URL ??
-  "https://web.gc.com/teams/kbN4LzDekbO6/2026-summer-haxtun-softball---12u";
+  "https://mcconnellentllc-cloud.github.io/haxtun-softball9-12/stats/";
 
 /* ---------------------------- Helpers ---------------------------- */
 
@@ -97,7 +98,7 @@ function asIdList(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 }
 
-function normalizeLineups(raw: unknown): Lineups {
+function normalizeSquads(raw: unknown): Squads {
   const src = (raw && typeof raw === "object" ? raw : {}) as Record<
     string,
     unknown
@@ -228,7 +229,7 @@ export default function Home() {
   const [coachDepths, setCoachDepths] = useState<CoachDepths>(() =>
     normalizeCoachDepths({}),
   );
-  const [lineups, setLineups] = useState<Lineups>({ A: [], B: [] });
+  const [squads, setSquads] = useState<Squads>({ A: [], B: [] });
   const [proposals, setProposals] = useState<Proposals>(() =>
     normalizeProposals({}),
   );
@@ -266,7 +267,7 @@ export default function Home() {
         setPlayers(Array.isArray(pData.players) ? pData.players : []);
         setDepth(normalizeDepth(sData.depth_chart));
         setCoachDepths(normalizeCoachDepths(sData.coach_depth));
-        setLineups(normalizeLineups(sData.lineups));
+        setSquads(normalizeSquads(sData.squads));
         setProposals(normalizeProposals(sData.proposals));
         setGameplans(normalizeGamePlans(sData.gameplans));
         setNotes(normalizeNotes(sData.notes));
@@ -327,19 +328,19 @@ export default function Home() {
     [coachDepths, coach],
   );
 
-  // Persist lineups; roll back on failure.
-  const saveLineups = useCallback(
-    async (next: Lineups) => {
-      const prev = lineups;
-      setLineups(next);
+  // Persist squad rosters; roll back on failure.
+  const saveSquads = useCallback(
+    async (next: Squads) => {
+      const prev = squads;
+      setSquads(next);
       try {
-        await putState("/api/state/lineups", next, coach);
+        await putState("/api/state/squads", next, coach);
       } catch (err) {
-        setLineups(prev);
+        setSquads(prev);
         setError(err instanceof Error ? err.message : "Save failed");
       }
     },
-    [lineups, coach],
+    [squads, coach],
   );
 
   // Persist coach proposals; roll back on failure.
@@ -390,7 +391,7 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-3xl p-5 sm:p-8">
-      <Header coach={coach} onChooseCoach={chooseCoach} />
+      <Header />
 
       <nav className="mt-6 flex flex-wrap gap-2">
         {TABS.map((t) => (
@@ -426,6 +427,13 @@ export default function Home() {
           <p className="text-neutral-400">Loading…</p>
         ) : tab === "roster" ? (
           <RosterPanel players={players} />
+        ) : tab === "teams" ? (
+          <SquadPanel
+            players={players}
+            byId={byId}
+            squads={squads}
+            onChange={saveSquads}
+          />
         ) : tab === "depth" ? (
           <DepthTab
             players={players}
@@ -439,13 +447,6 @@ export default function Home() {
               saveCoachDepths({ ...coachDepths, [name]: next })
             }
           />
-        ) : tab === "lineups" ? (
-          <LineupsPanel
-            players={players}
-            byId={byId}
-            lineups={lineups}
-            onChange={saveLineups}
-          />
         ) : tab === "compare" ? (
           <ComparePanel
             players={players}
@@ -453,6 +454,7 @@ export default function Home() {
             coach={coach}
             depth={depth}
             coachDepths={coachDepths}
+            squads={squads}
             proposals={proposals}
             notes={notes}
             onChooseCoach={chooseCoach}
@@ -464,6 +466,7 @@ export default function Home() {
             players={players}
             byId={byId}
             depth={depth}
+            squads={squads}
             gameplans={gameplans}
             notes={notes}
             onChange={saveGameplans}
@@ -477,13 +480,7 @@ export default function Home() {
 
 /* ----------------------------- Header ---------------------------- */
 
-function Header({
-  coach,
-  onChooseCoach,
-}: {
-  coach: string | null;
-  onChooseCoach: (name: string) => void;
-}) {
+function Header() {
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
@@ -495,21 +492,6 @@ function Header({
         </h1>
       </div>
       <div className="flex items-center gap-2">
-        <label className="text-xs text-neutral-400">Coach</label>
-        <select
-          value={coach ?? ""}
-          onChange={(e) => onChooseCoach(e.target.value)}
-          className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-red-600"
-        >
-          <option value="" disabled>
-            Who are you?
-          </option>
-          {COACHES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
         {STATS_URL && (
           <a
             href={STATS_URL}
@@ -924,105 +906,110 @@ function DepthCompare({
   );
 }
 
-/* ---------------------------- Lineups ---------------------------- */
+/* ----------------------------- Teams ----------------------------- */
 
-function LineupsPanel({
+// Split the roster into an A team and a B team. A player belongs to at most one
+// squad; assigning them to one removes them from the other.
+function SquadPanel({
   players,
   byId,
-  lineups,
+  squads,
   onChange,
 }: {
   players: Player[];
   byId: Map<string, Player>;
-  lineups: Lineups;
-  onChange: (next: Lineups) => void;
+  squads: Squads;
+  onChange: (next: Squads) => void;
 }) {
-  if (players.length === 0) return <EmptyRoster what="lineups" />;
-  return (
-    <section className="grid gap-4 sm:grid-cols-2">
-      {(["A", "B"] as const).map((team) => (
-        <BattingOrder
-          key={team}
-          team={team}
-          players={players}
-          byId={byId}
-          order={lineups[team]}
-          onChange={(next) => onChange({ ...lineups, [team]: next })}
-        />
-      ))}
-    </section>
-  );
-}
+  if (players.length === 0) return <EmptyRoster what="teams" />;
 
-function BattingOrder({
-  team,
-  players,
-  byId,
-  order,
-  onChange,
-}: {
-  team: Choice;
-  players: Player[];
-  byId: Map<string, Player>;
-  order: string[];
-  onChange: (next: string[]) => void;
-}) {
-  const add = (id: string) => {
-    if (order.includes(id)) return;
-    onChange([...order, id]);
+  const onEither = new Set([...squads.A, ...squads.B]);
+  const unassigned = players.filter((p) => !onEither.has(p.id));
+
+  const assign = (team: Side, id: string) => {
+    const other: Side = team === "A" ? "B" : "A";
+    onChange({
+      ...squads,
+      [team]: [...squads[team].filter((x) => x !== id), id],
+      [other]: squads[other].filter((x) => x !== id),
+    });
   };
-  const remove = (id: string) => onChange(order.filter((x) => x !== id));
-  const move = (idx: number, dir: -1 | 1) => {
-    const list = [...order];
-    const j = idx + dir;
-    if (j < 0 || j >= list.length) return;
-    [list[idx], list[j]] = [list[j], list[idx]];
-    onChange(list);
-  };
+  const removeFrom = (team: Side, id: string) =>
+    onChange({ ...squads, [team]: squads[team].filter((x) => x !== id) });
 
   return (
-    <div className="rounded border border-neutral-800 bg-neutral-900 p-3">
-      <h3 className="font-display text-2xl tracking-wider text-neutral-100">
-        Lineup <span className="text-red-500">{team}</span>
-      </h3>
-      <ol className="mt-2 space-y-1">
-        {order.length === 0 && (
-          <li className="text-xs text-neutral-600">No batters yet</li>
-        )}
-        {order.map((id, idx) => (
-          <li
-            key={id}
-            className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
-          >
-            <span className="truncate">
-              <span className="inline-block w-5 text-neutral-500">
-                {idx + 1}.
-              </span>{" "}
-              <PlayerName p={byId.get(id)} />
-            </span>
-            <span className="flex shrink-0 items-center gap-1">
-              <IconBtn label="Up" onClick={() => move(idx, -1)}>
-                ↑
-              </IconBtn>
-              <IconBtn label="Down" onClick={() => move(idx, 1)}>
-                ↓
-              </IconBtn>
-              <IconBtn label="Remove" onClick={() => remove(id)} danger>
-                ×
-              </IconBtn>
-            </span>
-          </li>
-        ))}
-      </ol>
-      <div className="mt-2">
-        <AddPlayer
-          players={players}
-          exclude={new Set(order)}
-          onAdd={add}
-          label="Add batter…"
-        />
+    <section className="space-y-4">
+      <p className="text-sm text-neutral-400">
+        Sort every girl onto the A team or the B team. These rosters drive who
+        you can pick in each game&rsquo;s lineup and outfield rotation.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {(["A", "B"] as const).map((team) => {
+          const list = squads[team];
+          const other: Side = team === "A" ? "B" : "A";
+          return (
+            <div
+              key={team}
+              className="rounded border border-neutral-800 bg-neutral-900 p-3"
+            >
+              <h3 className="font-display text-2xl tracking-wider text-neutral-100">
+                <span className="text-red-500">{team}</span> Team{" "}
+                <span className="text-base text-neutral-500">
+                  ({list.length})
+                </span>
+              </h3>
+              <ul className="mt-2 space-y-1">
+                {list.length === 0 && (
+                  <li className="text-xs text-neutral-600">No players yet</li>
+                )}
+                {list.map((id) => (
+                  <li
+                    key={id}
+                    className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
+                  >
+                    <span className="truncate">
+                      <PlayerName p={byId.get(id)} />
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      <button
+                        onClick={() => assign(other, id)}
+                        title={`Move to ${other} team`}
+                        className="rounded px-1.5 text-xs tracking-wider text-neutral-400 hover:bg-neutral-700 hover:text-white"
+                      >
+                        → {other}
+                      </button>
+                      <IconBtn
+                        label="Remove"
+                        onClick={() => removeFrom(team, id)}
+                        danger
+                      >
+                        ×
+                      </IconBtn>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2">
+                <AddPlayer
+                  players={players}
+                  exclude={onEither}
+                  onAdd={(id) => assign(team, id)}
+                  label={`Add to ${team} team…`}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
-    </div>
+      {unassigned.length > 0 && (
+        <div className="rounded border border-neutral-800 bg-neutral-900 p-3 text-sm text-neutral-400">
+          <span className="text-neutral-300">
+            {unassigned.length} unassigned:
+          </span>{" "}
+          {unassigned.map((p) => `${p.firstName} ${p.lastName}`).join(", ")}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -1040,12 +1027,35 @@ function emptyGamePlanAB(): GamePlanAB {
   return { A: emptyGamePlan(), B: emptyGamePlan() };
 }
 
-// Local date as YYYY-MM-DD (used as the week key).
-function todayKey(): string {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
+// Game picker, sourced from the season schedule. The selected game date is the
+// storage key for that game's proposals and plan.
+function GameSelect({
+  date,
+  onSelect,
+}: {
+  date: string;
+  onSelect: (d: string) => void;
+}) {
+  return (
+    <div className="rounded border border-neutral-800 bg-neutral-900 p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-display text-lg tracking-wider text-neutral-200">
+          Game
+        </span>
+        <select
+          value={date}
+          onChange={(e) => onSelect(e.target.value)}
+          className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-red-600"
+        >
+          {SCHEDULE.map((g) => (
+            <option key={g.date} value={g.date}>
+              {gameLabel(g)}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
 }
 
 function formatWeek(key: string): string {
@@ -1108,6 +1118,7 @@ function ComparePanel({
   coach,
   depth,
   coachDepths,
+  squads,
   proposals,
   notes,
   onChooseCoach,
@@ -1119,37 +1130,23 @@ function ComparePanel({
   coach: string | null;
   depth: DepthChart;
   coachDepths: CoachDepths;
+  squads: Squads;
   proposals: Proposals;
   notes: Notes;
   onChooseCoach: (name: string) => void;
   onChange: (next: Proposals) => void;
   onSaveNote: (week: string, text: string) => void;
 }) {
-  // Newest week first.
-  const weeks = Object.keys(proposals).sort().reverse();
-  const [week, setWeek] = useState<string>("");
+  const [week, setWeek] = useState<string>(() => defaultGameDate());
   const [side, setSide] = useState<Side>("A");
-
-  // Default to the latest week; recover if the selected week disappears.
-  useEffect(() => {
-    if (weeks.length === 0) {
-      if (week) setWeek("");
-    } else if (!week || !weeks.includes(week)) {
-      setWeek(weeks[0]);
-    }
-  }, [proposals]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (players.length === 0) return <EmptyRoster what="comparison" />;
 
-  const addWeek = (key: string, copyFrom?: string) => {
-    if (!key) return;
-    const base = copyFrom ? proposals[copyFrom] : undefined;
-    onChange({ ...proposals, [key]: proposals[key] ?? base ?? {} });
-    setWeek(key);
-  };
+  // Only the chosen squad's players can be slotted into this game's plan.
+  const sidePlayers = players.filter((p) => squads[side].includes(p.id));
 
-  const weekProps: WeekProposals = (week ? proposals[week] : undefined) ?? {};
-  // The selected A/B option for each coach.
+  const weekProps: WeekProposals = proposals[week] ?? {};
+  // Each coach's plan for the selected squad.
   const sideProps: Record<string, GamePlan> = {};
   for (const c of COACHES) sideProps[c] = weekProps[c]?.[side] ?? emptyGamePlan();
 
@@ -1164,83 +1161,74 @@ function ComparePanel({
 
   return (
     <section className="space-y-5">
-      <WeekBar
-        weeks={weeks}
+      <GameSelect date={week} onSelect={setWeek} />
+      <SideToggle side={side} onSelect={setSide} />
+
+      <NotesCard
+        key={week}
         week={week}
-        latest={weeks[0]}
-        onSelect={setWeek}
-        onAdd={addWeek}
+        note={notes[week] ?? ""}
+        onSave={(text) => onSaveNote(week, text)}
       />
 
-      {weeks.length === 0 ? (
+      {sidePlayers.length === 0 ? (
         <div className="rounded border border-neutral-800 bg-neutral-900 p-6 text-neutral-400">
-          No games yet. Add a game date above, then each coach can propose a
-          defense and lineup.
+          No players on the {side} team yet. Assign them on the{" "}
+          <span className="text-neutral-200">Teams</span> tab first.
         </div>
-      ) : !week ? null : (
+      ) : coach ? (
+        <div className="space-y-5">
+          <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+            <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+              Your proposal — {side} team
+            </h2>
+            <p className="mt-1 text-sm text-neutral-400">
+              Entering as <span className="text-neutral-100">{coach}</span>{" "}
+              for the game on{" "}
+              <span className="text-neutral-100">{formatWeek(week)}</span>
+            </p>
+          </div>
+          <PlanEditor
+            players={sidePlayers}
+            byId={byId}
+            draftDepth={myDepth}
+            draftLabel="Draft from my depth chart"
+            plan={myAB[side]}
+            onChange={(mine) =>
+              onChange({
+                ...proposals,
+                [week]: {
+                  ...weekProps,
+                  [coach]: { ...myAB, [side]: mine },
+                },
+              })
+            }
+          />
+        </div>
+      ) : (
+        <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+          <h3 className="font-display text-xl tracking-wider text-neutral-200">
+            Your proposal
+          </h3>
+          <p className="mt-1 text-sm text-neutral-400">
+            Pick which coach you are to propose a defense and lineup:
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {COACHES.map((c) => (
+              <button
+                key={c}
+                onClick={() => onChooseCoach(c)}
+                className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 text-sm hover:border-red-600"
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sidePlayers.length > 0 && (
         <>
-          <SideToggle side={side} onSelect={setSide} />
-
-          {week && (
-            <NotesCard
-              key={week}
-              week={week}
-              note={notes[week] ?? ""}
-              onSave={(text) => onSaveNote(week, text)}
-            />
-          )}
-
-          {coach ? (
-            <div className="space-y-5">
-              <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-                <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-                  Your proposal — {side} team
-                </h2>
-                <p className="mt-1 text-sm text-neutral-400">
-                  Entering as <span className="text-neutral-100">{coach}</span>{" "}
-                  for the game on{" "}
-                  <span className="text-neutral-100">{formatWeek(week)}</span>
-                </p>
-              </div>
-              <PlanEditor
-                players={players}
-                byId={byId}
-                draftDepth={myDepth}
-                draftLabel="Draft from my depth chart"
-                plan={myAB[side]}
-                onChange={(mine) =>
-                  onChange({
-                    ...proposals,
-                    [week]: {
-                      ...weekProps,
-                      [coach]: { ...myAB, [side]: mine },
-                    },
-                  })
-                }
-              />
-            </div>
-          ) : (
-            <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-              <h3 className="font-display text-xl tracking-wider text-neutral-200">
-                Your proposal
-              </h3>
-              <p className="mt-1 text-sm text-neutral-400">
-                Pick which coach you are to propose a defense and lineup:
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {COACHES.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => onChooseCoach(c)}
-                    className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 text-sm hover:border-red-600"
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           <DefenseCompare byId={byId} side={side} plans={sideProps} />
           <BattingCompare byId={byId} side={side} plans={sideProps} />
         </>
@@ -1249,7 +1237,7 @@ function ComparePanel({
   );
 }
 
-// A/B option toggle.
+// A team / B team squad toggle.
 function SideToggle({
   side,
   onSelect,
@@ -1260,7 +1248,7 @@ function SideToggle({
   return (
     <div className="flex items-center gap-2">
       <span className="font-display text-lg tracking-wider text-neutral-200">
-        Team
+        Squad
       </span>
       {(["A", "B"] as const).map((s) => (
         <button
@@ -1273,7 +1261,7 @@ function SideToggle({
               : "border border-neutral-700 bg-black/40 text-neutral-300 hover:border-red-600")
           }
         >
-          {s}
+          {s} Team
         </button>
       ))}
     </div>
@@ -1311,73 +1299,6 @@ function NotesCard({
       <p className="mt-1 text-xs text-neutral-600">
         Shared by all coaches · saved when you click away.
       </p>
-    </div>
-  );
-}
-
-function WeekBar({
-  weeks,
-  week,
-  latest,
-  onSelect,
-  onAdd,
-}: {
-  weeks: string[];
-  week: string;
-  latest: string | undefined;
-  onSelect: (key: string) => void;
-  onAdd: (key: string, copyFrom?: string) => void;
-}) {
-  const [draft, setDraft] = useState(todayKey());
-  const [copyLast, setCopyLast] = useState(true);
-
-  return (
-    <div className="rounded border border-neutral-800 bg-neutral-900 p-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="font-display text-lg tracking-wider text-neutral-200">
-          Week
-        </span>
-        {weeks.length > 0 ? (
-          <select
-            value={week}
-            onChange={(e) => onSelect(e.target.value)}
-            className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-red-600"
-          >
-            {weeks.map((w) => (
-              <option key={w} value={w}>
-                {formatWeek(w)}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span className="text-sm text-neutral-500">none yet</span>
-        )}
-
-        <div className="ml-auto flex items-center gap-2">
-          <input
-            type="date"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-red-600"
-          />
-          <button
-            onClick={() => onAdd(draft, copyLast ? latest : undefined)}
-            className="rounded bg-red-600 px-3 py-1 font-display text-sm tracking-wider text-white hover:bg-red-500"
-          >
-            Add week
-          </button>
-        </div>
-      </div>
-      {weeks.length > 0 && (
-        <label className="mt-2 flex items-center gap-2 text-xs text-neutral-400">
-          <input
-            type="checkbox"
-            checked={copyLast}
-            onChange={(e) => setCopyLast(e.target.checked)}
-          />
-          Start the new week from the latest week&rsquo;s picks
-        </label>
-      )}
     </div>
   );
 }
@@ -1945,6 +1866,7 @@ function GamePlanPanel({
   players,
   byId,
   depth,
+  squads,
   gameplans,
   notes,
   onChange,
@@ -1953,74 +1875,48 @@ function GamePlanPanel({
   players: Player[];
   byId: Map<string, Player>;
   depth: DepthChart;
+  squads: Squads;
   gameplans: GamePlans;
   notes: Notes;
   onChange: (next: GamePlans) => void;
   onSaveNote: (week: string, text: string) => void;
 }) {
-  const weeks = Object.keys(gameplans).sort().reverse();
-  const [week, setWeek] = useState<string>("");
+  const [week, setWeek] = useState<string>(() => defaultGameDate());
   const [side, setSide] = useState<Side>("A");
-
-  useEffect(() => {
-    if (weeks.length === 0) {
-      if (week) setWeek("");
-    } else if (!week || !weeks.includes(week)) {
-      setWeek(weeks[0]);
-    }
-  }, [gameplans]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (players.length === 0) return <EmptyRoster what="game plan" />;
 
-  const addWeek = (key: string, copyFrom?: string) => {
-    if (!key) return;
-    const base = copyFrom ? gameplans[copyFrom] : undefined;
-    onChange({
-      ...gameplans,
-      [key]: gameplans[key] ?? base ?? emptyGamePlanAB(),
-    });
-    setWeek(key);
-  };
-
-  const ab: GamePlanAB =
-    (week ? gameplans[week] : undefined) ?? emptyGamePlanAB();
+  const sidePlayers = players.filter((p) => squads[side].includes(p.id));
+  const ab: GamePlanAB = gameplans[week] ?? emptyGamePlanAB();
 
   return (
     <section className="space-y-5">
-      <WeekBar
-        weeks={weeks}
+      <GameSelect date={week} onSelect={setWeek} />
+      <SideToggle side={side} onSelect={setSide} />
+
+      <NotesCard
+        key={week}
         week={week}
-        latest={weeks[0]}
-        onSelect={setWeek}
-        onAdd={addWeek}
+        note={notes[week] ?? ""}
+        onSave={(text) => onSaveNote(week, text)}
       />
 
-      {weeks.length === 0 ? (
+      {sidePlayers.length === 0 ? (
         <div className="rounded border border-neutral-800 bg-neutral-900 p-6 text-neutral-400">
-          No games yet. Add a game date above to build the defense and lineup.
+          No players on the {side} team yet. Assign them on the{" "}
+          <span className="text-neutral-200">Teams</span> tab first.
         </div>
-      ) : !week ? null : (
-        <>
-          <SideToggle side={side} onSelect={setSide} />
-
-          <NotesCard
-            key={week}
-            week={week}
-            note={notes[week] ?? ""}
-            onSave={(text) => onSaveNote(week, text)}
-          />
-
-          <PlanEditor
-            players={players}
-            byId={byId}
-            draftDepth={depth}
-            draftLabel="Auto-draft from depth chart"
-            plan={ab[side]}
-            onChange={(next) =>
-              onChange({ ...gameplans, [week]: { ...ab, [side]: next } })
-            }
-          />
-        </>
+      ) : (
+        <PlanEditor
+          players={sidePlayers}
+          byId={byId}
+          draftDepth={depth}
+          draftLabel="Auto-draft from depth chart"
+          plan={ab[side]}
+          onChange={(next) =>
+            onChange({ ...gameplans, [week]: { ...ab, [side]: next } })
+          }
+        />
       )}
     </section>
   );

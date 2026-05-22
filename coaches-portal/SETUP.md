@@ -1,12 +1,9 @@
 # Bulldogs Coaches Portal — Setup
 
-Password-protected PWA for the 3 coaches to manage roster, depth chart,
-A/B lineups, and per-inning subs with coach voting. Backend = Airtable.
-Hosted on Vercel. **Separate from the public site repo.**
-
-> Status: backend + auth + PWA scaffold complete. The roster/depth/lineup/
-> voting UI is a placeholder until `bulldogs-lineup.jsx` is ported into
-> `app/page.tsx`.
+Password-protected PWA for the coaches to manage the roster, depth chart,
+A/B team squads, and per-game defense rotations + batting lineups, with
+per-coach proposals. Backend = Airtable. Hosted on Vercel.
+**Separate from the public site repo.**
 
 ---
 
@@ -32,7 +29,7 @@ Make a base named **Bulldogs Coaches** with three tables.
 
 Add two rows:
 - `Key = depth_chart`, `Value = {}`
-- `Key = lineups`, `Value = {}`
+- `Key = squads`, `Value = {}`
 
 (If you skip this, the app creates them on first write.)
 
@@ -174,46 +171,45 @@ middleware.ts            Auth gate. Verifies signed cookie on every route
                          to /login for pages.
 lib/auth.ts              jose JWT: createSessionToken / verifySessionToken.
 lib/airtable.ts          fetch-based Airtable client (players + state + log).
-lib/lineup-cleanup.ts    Strips a removed player from depth_chart + lineups.
+lib/lineup-cleanup.ts    Strips a removed player from depth_chart + squads.
+lib/schedule.ts          Season game list; drives the per-game picker.
 
 app/login/page.tsx       Password field → POST /api/auth/login.
-app/page.tsx             Placeholder — port bulldogs-lineup.jsx here.
+app/page.tsx             The portal UI: roster, teams, depth, propose, plan.
 
 app/api/auth/login       POST: verify password, set signed cookie.
 app/api/auth/logout      POST (JSON) / GET (redirect): clear cookie.
 app/api/players          GET list active, POST add.
 app/api/players/[id]     PATCH edit, DELETE soft-delete + scrub from state.
-app/api/state            GET { depth_chart, lineups }.
+app/api/state            GET { depth_chart, coach_depth, squads, proposals,
+                         gameplans, notes }.
 app/api/state/depth      PUT full depth_chart JSON.
-app/api/state/lineups    PUT full lineups JSON.
+app/api/state/squads     PUT full squads JSON (A/B team rosters).
+app/api/state/proposals  PUT full proposals JSON (per-coach, per-game plans).
+app/api/state/gameplans  PUT full gameplans JSON (the team plan, per game).
 ```
 
-### State JSON shapes (reconcile with the prototype when porting)
+### State JSON shapes
 ```jsonc
-// depth_chart
-{ "A": { "P": ["recXXX"], "C": [], "1B": [] }, "B": { } }
+// depth_chart  — position -> ordered player ids
+{ "P": ["recXXX"], "C": [], "1B": [] }
 
-// lineups
+// squads  — the A team / B team rosters
+{ "A": ["recXXX"], "B": ["recYYY"] }
+
+// gameplans  — game date -> per-squad plan (proposals share this per-coach)
 {
-  "A": {
-    "1": { "field": { "P": "recXXX" }, "batting": ["recXXX"],
-           "votes": { "field": { "P": "recYYY" }, "batting": ["recYYY"] } }
-  },
-  "B": { }
+  "2026-05-26": {
+    "A": { "defense": [ { "P": "recXXX" } ], "order": ["recXXX"], "subs": [] },
+    "B": { "defense": [], "order": [], "subs": [] }
+  }
 }
 ```
-`recXXX` = the Airtable record ID of the player.
+`recXXX` = the Airtable record ID of the player. Game keys come from
+`lib/schedule.ts`.
 
-### Frontend porting notes (when `bulldogs-lineup.jsx` arrives)
-Replace the prototype's storage calls:
-- `window.storage.get(key, true)` → `fetch('/api/state')`
-- `window.storage.set('roster', …)` → `fetch('/api/players', { method:'POST' })`
-- `window.storage.set('depth-chart', …)` → `PUT /api/state/depth`
-- `window.storage.set('team-A'|'team-B', …)` → `PUT /api/state/lineups` (one blob)
-- `window.storage.get('my-coach-identity', false)` → `localStorage` (per-device)
-
-Add: 15s polling of `/api/state` + `/api/players`, optimistic UI with revert
-on error, and send `X-Coach: <name>` on mutations so ActivityLog attributes
+Coach identity is per-device (`localStorage`), chosen inline on the Propose
+tab; mutations send an `X-Coach: <name>` header so ActivityLog can attribute
 changes.
 
 ---
