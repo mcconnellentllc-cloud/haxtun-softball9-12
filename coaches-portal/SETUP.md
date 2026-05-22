@@ -221,44 +221,43 @@ changes.
 
 ## Stats data (`_data/stats.yml`)
 
-The portal's **Stats** tab reads the same `_data/stats.yml` that the public
-site uses, fetched at runtime from the public repo's raw GitHub URL and cached
-~10 min (`app/api/stats/route.ts`, override the source with `STATS_YML_URL`).
-It ranks each table by a composite score (every stat normalized 0–1 against the
-roster max, then averaged).
+`_data/stats.yml` is **generated from a GameChanger CSV export** by
+`scripts/import-gamechanger.mjs` — don't hand-edit it; re-run the importer after
+each game (see "Updating stats after a game" below). It has three sections —
+`batting:`, `pitching:`, `fielding:` — keyed by `jersey`, with snake_case stat
+keys (rate stats quoted as strings so they display as `.938`, not `0.938`).
 
-The file already has `batting:` and `pitching:` lists. To make the **Fielding**
-table populate, add a `fielding:` list using the **same field-name style** as
-the existing sections (`num`, `name`, lowercase stat keys; rate stats quoted as
-strings so they display as `.938` not `0.938`). No code change is needed — the
-table fills in automatically once the YAML is added.
+Both the public `/stats/` page and the portal **Stats** tab read this same file
+(the portal fetches it from the public repo's raw GitHub URL, cached ~10 min via
+`app/api/stats/route.ts`; override the source with `STATS_YML_URL`). The public
+page is sorted by jersey; the portal ranks each table by a composite score
+(every stat normalized 0–1 against the roster max, then averaged):
 
-### Fielding schema — paste from the GameChanger fielding export
+- Batting: average of normalized **AVG, OBP, H, RBI**
+- Pitching: average of normalized **1/ERA, K, 1/WHIP**
+- Fielding: average of normalized **FPCT, PO, A, 1/(E+1)**
 
-```yaml
-fielding:
-  - { num: 1,  name: "Kyla W.",    g: 5, po: 12, a: 3, e: 1, fpct: ".938" }
-  - { num: 22, name: "Tyndle M.",  g: 5, po: 20, a: 8, e: 0, fpct: "1.000" }
-  # ...one row per player
-```
+**Privacy:** jersey **#23** is name-withheld on the public site. The importer
+writes only `name: "#23"` + `hidden: true` for her — her real name never enters
+this public repo. The public page renders her as "—"; the private portal shows
+her real name by joining the jersey to the Airtable roster.
 
-Field names (match GameChanger's columns):
+---
 
-| Key | Meaning | Notes |
-|---|---|---|
-| `num` | Jersey number | integer; same as batting/pitching |
-| `name` | First name + last initial | e.g. `"Kyla W."`; leave `""` for the name-withheld player (#23) |
-| `g` | Games (fielding) | integer; a player with `g: 0` sorts to the bottom |
-| `po` | Putouts | integer |
-| `a` | Assists | integer |
-| `e` | Errors | integer |
-| `fpct` | Fielding percentage | quoted string, e.g. `".938"` or `"1.000"` |
+## Updating stats after a game
 
-Optional columns some exports include — capture them if present, the portal just
-ignores them: `tc` (total chances), `dp` (double plays).
-
-Composite = average of normalized **FPCT, PO, A, and 1/(E+1)** (so fewer errors
-score higher).
+1. In GameChanger, export the **season stats** as CSV.
+2. Save it under `coaches-portal/scripts/imports/` (gitignored — raw exports are
+   never committed; the folder is kept by a `.gitkeep`).
+3. From `coaches-portal/`, run the importer:
+   ```bash
+   node scripts/import-gamechanger.mjs scripts/imports/your-export.csv
+   ```
+   This regenerates `_data/stats.yml` (batting + pitching + fielding, with the
+   GameChanger glossary as a comment block at the top).
+4. Commit the updated `_data/stats.yml`.
+5. Push: the public site auto-deploys (GitHub Pages), and the portal Stats tab
+   reads the same file on its next load. No code changes needed per game.
 
 ---
 
