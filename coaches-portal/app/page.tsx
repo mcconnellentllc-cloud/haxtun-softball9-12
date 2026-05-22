@@ -27,11 +27,15 @@ type Squads = {
 // A defensive assignment for each inning: position -> player id.
 type Defense = Record<string, string>[];
 
-// A defense + batting lineup + bench.
+// A batting assignment for each inning: slot ("1".."12") -> player id. The
+// order continues across innings (9 bat per inning); subbing a bench player into
+// a slot mid-game changes who owns that slot from that inning forward.
+type Batting = Record<string, string>[];
+
+// A per-game plan for one squad: defensive rotation + batting lineup grid.
 type GamePlan = {
   defense: Defense; // one entry per inning
-  order: string[]; // batting lineup, full game (~2 at-bats)
-  subs: string[]; // bench, rotate in (~1 at-bat)
+  batting: Batting; // one entry per inning
 };
 
 // Each game carries a plan per squad: one for the A team, one for the B team.
@@ -54,6 +58,8 @@ type Notes = Record<string, string>;
 const POSITIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"] as const;
 const COACHES = ["Kyle", "Jordan", "Emily"] as const;
 const INNINGS = 5;
+const BATTING_SLOTS = 12;
+const SLOTS = Array.from({ length: BATTING_SLOTS }, (_, i) => String(i + 1));
 const TABS = ["roster", "teams", "depth", "compare", "plan"] as const;
 type Tab = (typeof TABS)[number];
 
@@ -167,6 +173,29 @@ function normalizeDefense(raw: unknown): Record<string, string>[] {
   return out;
 }
 
+function normalizeBatting(raw: unknown, legacyOrder?: unknown): Batting {
+  const arr = Array.isArray(raw) ? raw : [];
+  // Legacy migration: older plans stored a flat `order` list. Seed every inning
+  // with that lineup so existing proposals/plans aren't lost.
+  const legacy = arr.length === 0 ? asIdList(legacyOrder).slice(0, BATTING_SLOTS) : [];
+  const out: Batting = [];
+  for (let i = 0; i < INNINGS; i++) {
+    const src = (arr[i] && typeof arr[i] === "object" && !Array.isArray(arr[i])
+      ? arr[i]
+      : {}) as Record<string, unknown>;
+    const inning: Record<string, string> = {};
+    for (const slot of SLOTS) {
+      const v = src[slot];
+      if (typeof v === "string" && v) inning[slot] = v;
+    }
+    legacy.forEach((id, idx) => {
+      inning[String(idx + 1)] = id;
+    });
+    out.push(inning);
+  }
+  return out;
+}
+
 function normalizeGamePlan(raw: unknown): GamePlan {
   const p = (raw && typeof raw === "object" ? raw : {}) as Record<
     string,
@@ -174,8 +203,7 @@ function normalizeGamePlan(raw: unknown): GamePlan {
   >;
   return {
     defense: normalizeDefense(p.defense),
-    order: asIdList(p.order),
-    subs: asIdList(p.subs),
+    batting: normalizeBatting(p.batting, p.order),
   };
 }
 
@@ -1019,8 +1047,12 @@ function emptyDefense(): Defense {
   return Array.from({ length: INNINGS }, () => ({}));
 }
 
+function emptyBatting(): Batting {
+  return Array.from({ length: INNINGS }, () => ({}));
+}
+
 function emptyGamePlan(): GamePlan {
-  return { defense: emptyDefense(), order: [], subs: [] };
+  return { defense: emptyDefense(), batting: emptyBatting() };
 }
 
 function emptyGamePlanAB(): GamePlanAB {
@@ -1072,9 +1104,8 @@ function formatWeek(key: string): string {
 function hasPlan(p: GamePlan | undefined): boolean {
   if (!p) return false;
   return (
-    p.order.length > 0 ||
-    p.subs.length > 0 ||
-    p.defense.some((inn) => Object.keys(inn).length > 0)
+    p.defense.some((inn) => Object.keys(inn).length > 0) ||
+    p.batting.some((inn) => Object.keys(inn).length > 0)
   );
 }
 
@@ -1086,9 +1117,12 @@ function fieldInningsOf(defense: Defense, id: string): number {
   );
 }
 
-// At-bats: batting lineup ≈ 2, bench subs ≈ 1, otherwise 0.
+// At-bats ≈ the number of innings a girl is in the batting lineup.
 function atBatsOf(plan: GamePlan, id: string): number {
-  return plan.order.includes(id) ? 2 : plan.subs.includes(id) ? 1 : 0;
+  return plan.batting.reduce(
+    (n, inn) => n + (Object.values(inn).includes(id) ? 1 : 0),
+    0,
+  );
 }
 
 type RowStatus = "agree" | "differ" | "single" | "none";
@@ -1099,16 +1133,6 @@ function rowStatus(picks: (string | undefined)[]): RowStatus {
   if (given.length === 0) return "none";
   const distinct = new Set(given);
   if (distinct.size === 1) return given.length >= 2 ? "agree" : "single";
-  return "differ";
-}
-
-// Compare per-coach lists as unordered sets (used for the subs bench, where
-// who's available matters more than the order).
-function setStatus(lists: string[][]): RowStatus {
-  const given = lists.filter((l) => l.length > 0);
-  if (given.length === 0) return "none";
-  const keys = new Set(given.map((l) => [...l].sort().join("|")));
-  if (keys.size === 1) return given.length >= 2 ? "agree" : "single";
   return "differ";
 }
 
@@ -1320,17 +1344,15 @@ function PlanEditor({
   plan: GamePlan;
   onChange: (next: GamePlan) => void;
 }) {
-  const battingTaken = new Set([...plan.order, ...plan.subs]);
-
   const autoDraft = () => {
     const defense = draftDefense(players, draftDepth);
-    // Default everyone into the lineup the first time, so the at-bat minimum
-    // is covered out of the gate.
-    const order =
-      plan.order.length === 0 && plan.subs.length === 0
-        ? players.map((p) => p.id)
-        : plan.order;
-    onChange({ ...plan, defense, order });
+    // Seed the batting grid with a default lineup the first time, so the at-bat
+    // minimum is covered out of the gate. Leave an in-progress grid alone.
+    const battingEmpty = plan.batting.every(
+      (inn) => Object.keys(inn).length === 0,
+    );
+    const batting = battingEmpty ? draftBatting(players) : plan.batting;
+    onChange({ ...plan, defense, batting });
   };
 
   return (
@@ -1361,27 +1383,20 @@ function PlanEditor({
 
       <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
         <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-          Offense
+          Batting lineup{" "}
+          <span className="text-sm text-neutral-500">
+            ({BATTING_SLOTS} slots × {INNINGS} innings)
+          </span>
         </h2>
-        <ListEditor
-          title="Batting lineup"
-          hint="full game · ~2 at-bats"
+        <p className="mt-0.5 text-xs text-neutral-500">
+          The order carries across innings — 9 bat per inning, so slot 10 leads
+          off the next inning. By default the same lineup bats all game; swap a
+          bench player into an inning to plan a sub from that inning on.
+        </p>
+        <BattingGrid
           players={players}
-          byId={byId}
-          ids={plan.order}
-          exclude={battingTaken}
-          addLabel="Add batter…"
-          onChange={(order) => onChange({ ...plan, order })}
-        />
-        <ListEditor
-          title="Subs"
-          hint="off the bench · ~1 at-bat"
-          players={players}
-          byId={byId}
-          ids={plan.subs}
-          exclude={battingTaken}
-          addLabel="Add sub…"
-          onChange={(subs) => onChange({ ...plan, subs })}
+          batting={plan.batting}
+          onChange={(batting) => onChange({ ...plan, batting })}
         />
       </div>
 
@@ -1462,6 +1477,148 @@ function DefenseGrid({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// The batting-order grid (slots x innings), mirroring the defense grid. The
+// order continues across innings; changing a cell pushes that player into the
+// slot from that inning forward (over the run of whoever held it), so planning a
+// sub is one click. Cells that differ from the previous inning are highlighted
+// to mark where a sub enters.
+function BattingGrid({
+  players,
+  batting,
+  onChange,
+}: {
+  players: Player[];
+  batting: Batting;
+  onChange: (next: Batting) => void;
+}) {
+  const setCell = (inning: number, slot: string, id: string) => {
+    const next = batting.map((b) => ({ ...b }));
+    const oldVal = next[inning]?.[slot] ?? "";
+    // Forward-fill only over the contiguous run of the player being replaced, so
+    // a sub planned in a later inning is preserved.
+    for (let j = inning; j < INNINGS; j++) {
+      if (j !== inning && (next[j]?.[slot] ?? "") !== oldVal) break;
+      if (!id) {
+        delete next[j][slot];
+        continue;
+      }
+      // Don't create a duplicate within a later inning.
+      const dupe = Object.entries(next[j] ?? {}).some(
+        ([k, v]) => k !== slot && v === id,
+      );
+      if (dupe && j !== inning) break;
+      next[j][slot] = id;
+    }
+    onChange(next);
+  };
+
+  // Bench = squad players not in the starting (inning 1) lineup.
+  const starters = new Set(Object.values(batting[0] ?? {}));
+  const bench = players.filter((p) => !starters.has(p.id));
+
+  return (
+    <>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[620px] border-collapse text-sm">
+          <thead>
+            <tr className="text-neutral-400">
+              <th className="px-2 py-1 text-left font-display tracking-wider">
+                Slot
+              </th>
+              {Array.from({ length: INNINGS }, (_, i) => (
+                <th
+                  key={i}
+                  className="px-2 py-1 text-left font-display tracking-wider"
+                >
+                  Inn {i + 1}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {SLOTS.map((slot) => (
+              <tr key={slot} className="border-t border-neutral-800">
+                <th className="px-2 py-1 text-left font-display text-lg tracking-wider text-red-500">
+                  {slot}
+                </th>
+                {Array.from({ length: INNINGS }, (_, inning) => {
+                  const current = batting[inning]?.[slot] ?? "";
+                  const used = new Set(
+                    Object.entries(batting[inning] ?? {})
+                      .filter(([k]) => k !== slot)
+                      .map(([, v]) => v),
+                  );
+                  const options = players.filter(
+                    (p) => p.id === current || !used.has(p.id),
+                  );
+                  const prev =
+                    inning > 0 ? batting[inning - 1]?.[slot] ?? "" : current;
+                  const changed = inning > 0 && !!current && current !== prev;
+                  return (
+                    <td key={inning} className="px-1 py-1">
+                      <select
+                        value={current}
+                        onChange={(e) => setCell(inning, slot, e.target.value)}
+                        className={
+                          "w-full rounded border bg-neutral-900 px-1 py-1 text-sm outline-none focus:border-red-600 " +
+                          (changed
+                            ? "border-amber-500 text-amber-300"
+                            : "border-neutral-700")
+                        }
+                      >
+                        <option value="">—</option>
+                        {options.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {jerseyTag(p)} {p.firstName}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <BenchPool bench={bench} />
+    </>
+  );
+}
+
+// The bench pool below the batting grid: squad players not in the starting
+// lineup, available to sub into an inning column above.
+function BenchPool({ bench }: { bench: Player[] }) {
+  return (
+    <div className="mt-3 rounded border border-neutral-800 bg-black/30 p-3">
+      <h3 className="font-display text-lg tracking-wider text-neutral-200">
+        Bench <span className="text-sm text-neutral-500">({bench.length})</span>
+      </h3>
+      <p className="mt-0.5 text-xs text-neutral-500">
+        Not in the starting lineup. Pick one in an inning column above to sub
+        them into that slot from that inning on.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {bench.length === 0 ? (
+          <span className="text-xs text-neutral-600">Everyone&rsquo;s starting.</span>
+        ) : (
+          bench.map((p) => (
+            <span
+              key={p.id}
+              className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200"
+            >
+              <span className="font-display tracking-wider text-red-500">
+                {jerseyTag(p)}
+              </span>{" "}
+              {p.firstName} {p.lastName}
+            </span>
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -1588,43 +1745,6 @@ function CoachPick({ coach, p }: { coach: string; p: Player | undefined }) {
   );
 }
 
-// One coach's ranked depth list (used by the positions comparison). The
-// starter is emphasized; deeper names are dimmed.
-function CoachRanked({
-  coach,
-  ids,
-  byId,
-}: {
-  coach: string;
-  ids: string[];
-  byId: Map<string, Player>;
-}) {
-  return (
-    <li className="flex items-start justify-between gap-2 py-0.5 text-sm">
-      <span className="shrink-0 text-neutral-400">{coach}</span>
-      <span className="min-w-0 text-right">
-        {ids.length === 0 ? (
-          <span className="text-neutral-600">—</span>
-        ) : (
-          ids.map((id, i) => {
-            const p = byId.get(id);
-            const text = p ? `${jerseyTag(p)} ${p.firstName}` : "?";
-            return (
-              <span
-                key={id}
-                className={i === 0 ? "text-neutral-100" : "text-neutral-500"}
-              >
-                {i > 0 ? ", " : ""}
-                {text}
-              </span>
-            );
-          })
-        )}
-      </span>
-    </li>
-  );
-}
-
 function DefenseCompare({
   byId,
   side,
@@ -1717,20 +1837,18 @@ function BattingCompare({
   plans: Record<string, GamePlan>;
 }) {
   const any = COACHES.some((c) => hasPlan(plans[c]));
-  const maxLen = Math.max(
-    0,
-    ...COACHES.map((c) => plans[c]?.order.length ?? 0),
-  );
-  const rows = Array.from({ length: maxLen }, (_, i) => {
-    const picks = COACHES.map((c) => plans[c]?.order?.[i]);
-    return { slot: i, picks, status: rowStatus(picks) };
+  let agree = 0;
+  let differ = 0;
+  const innings = Array.from({ length: INNINGS }, (_, i) => {
+    const cells = SLOTS.map((slot) => {
+      const picks = COACHES.map((c) => plans[c]?.batting?.[i]?.[slot]);
+      const status = rowStatus(picks);
+      if (status === "agree") agree++;
+      else if (status === "differ") differ++;
+      return { slot, picks, status };
+    });
+    return { inning: i, cells };
   });
-  const agree = rows.filter((r) => r.status === "agree").length;
-  const differ = rows.filter((r) => r.status === "differ").length;
-
-  const subLists = COACHES.map((c) => plans[c]?.subs ?? []);
-  const subsStatus = setStatus(subLists);
-  const anySubs = subLists.some((l) => l.length > 0);
 
   return (
     <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
@@ -1744,68 +1862,48 @@ function BattingCompare({
           <span className="text-red-400">{differ} differ</span>
         </p>
       </div>
+      <p className="mt-0.5 text-xs text-neutral-500">
+        Agree/Differs is per batting slot, per inning, across coaches.
+      </p>
       {!any ? (
         <p className="mt-2 text-sm text-neutral-400">
-          No proposals for this week yet. Enter yours above to start the
+          No proposals for this game yet. Enter yours above to start the
           comparison.
         </p>
       ) : (
-        <>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {rows.map(({ slot, picks, status }) => {
-              const badge = STATUS_BADGE[status];
-              return (
-                <CompareCell key={slot} status={status}>
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-display text-xl tracking-wider text-red-500">
-                      {slot + 1}
-                    </h3>
-                    <span className={"text-xs " + badge.cls}>{badge.label}</span>
-                  </div>
-                  <ul className="mt-1">
-                    {COACHES.map((c, i) => (
-                      <CoachPick key={c} coach={c} p={byId.get(picks[i] ?? "")} />
-                    ))}
-                  </ul>
-                </CompareCell>
-              );
-            })}
+        innings.map(({ inning, cells }) => (
+          <div key={inning} className="mt-4">
+            <h3 className="font-display text-lg tracking-wider text-neutral-200">
+              Inning {inning + 1}
+            </h3>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {cells.map(({ slot, picks, status }) => {
+                const badge = STATUS_BADGE[status];
+                return (
+                  <CompareCell key={slot} status={status}>
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-display text-lg tracking-wider text-red-500">
+                        {slot}
+                      </h4>
+                      <span className={"text-xs " + badge.cls}>
+                        {badge.label}
+                      </span>
+                    </div>
+                    <ul className="mt-1">
+                      {COACHES.map((c, i) => (
+                        <CoachPick
+                          key={c}
+                          coach={c}
+                          p={byId.get(picks[i] ?? "")}
+                        />
+                      ))}
+                    </ul>
+                  </CompareCell>
+                );
+              })}
+            </div>
           </div>
-
-          {anySubs && (
-            <>
-              <h3 className="mt-4 font-display text-lg tracking-wider text-neutral-200">
-                Subs
-              </h3>
-              <p className="mt-0.5 text-xs text-neutral-500">
-                Agree/Differs compares each coach&rsquo;s bench as a group,
-                ignoring order.
-              </p>
-              <div className="mt-2">
-                <CompareCell status={subsStatus}>
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-display text-lg tracking-wider text-red-500">
-                      Bench
-                    </h4>
-                    <span className={"text-xs " + STATUS_BADGE[subsStatus].cls}>
-                      {STATUS_BADGE[subsStatus].label}
-                    </span>
-                  </div>
-                  <ul className="mt-1">
-                    {COACHES.map((c, i) => (
-                      <CoachRanked
-                        key={c}
-                        coach={c}
-                        ids={subLists[i]}
-                        byId={byId}
-                      />
-                    ))}
-                  </ul>
-                </CompareCell>
-              </div>
-            </>
-          )}
-        </>
+        ))
       )}
     </div>
   );
@@ -1817,6 +1915,19 @@ function BattingCompare({
 // the field-inning floor first (so all girls meet the minimum), then the extra
 // innings go to the strongest players (those highest on each position's depth
 // list).
+// Default batting grid: the first 12 squad players bat in roster order, the same
+// lineup every inning (no subs planned yet).
+function draftBatting(players: Player[]): Batting {
+  const starters = players.slice(0, BATTING_SLOTS).map((p) => p.id);
+  return Array.from({ length: INNINGS }, () => {
+    const inn: Record<string, string> = {};
+    starters.forEach((id, i) => {
+      inn[String(i + 1)] = id;
+    });
+    return inn;
+  });
+}
+
 function draftDefense(players: Player[], depth: DepthChart): Defense {
   const FLOOR = 2;
   const ids = new Set(players.map((p) => p.id));
@@ -1919,86 +2030,6 @@ function GamePlanPanel({
         />
       )}
     </section>
-  );
-}
-
-// Reusable ordered add/remove/reorder list of players.
-function ListEditor({
-  title,
-  hint,
-  players,
-  byId,
-  ids,
-  exclude,
-  addLabel,
-  onChange,
-}: {
-  title: string;
-  hint?: string;
-  players: Player[];
-  byId: Map<string, Player>;
-  ids: string[];
-  exclude: Set<string>;
-  addLabel: string;
-  onChange: (next: string[]) => void;
-}) {
-  const add = (id: string) => {
-    if (ids.includes(id)) return;
-    onChange([...ids, id]);
-  };
-  const remove = (id: string) => onChange(ids.filter((x) => x !== id));
-  const move = (idx: number, dir: -1 | 1) => {
-    const list = [...ids];
-    const j = idx + dir;
-    if (j < 0 || j >= list.length) return;
-    [list[idx], list[j]] = [list[j], list[idx]];
-    onChange(list);
-  };
-
-  return (
-    <div className="mt-4">
-      <h3 className="font-display text-lg tracking-wider text-neutral-200">
-        {title}
-        {hint && <span className="text-sm text-neutral-500"> ({hint})</span>}
-      </h3>
-      <ol className="mt-2 space-y-1">
-        {ids.length === 0 && (
-          <li className="text-xs text-neutral-600">No one yet</li>
-        )}
-        {ids.map((id, idx) => (
-          <li
-            key={id}
-            className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
-          >
-            <span className="truncate">
-              <span className="inline-block w-5 text-neutral-500">
-                {idx + 1}.
-              </span>{" "}
-              <PlayerName p={byId.get(id)} />
-            </span>
-            <span className="flex shrink-0 items-center gap-1">
-              <IconBtn label="Up" onClick={() => move(idx, -1)}>
-                ↑
-              </IconBtn>
-              <IconBtn label="Down" onClick={() => move(idx, 1)}>
-                ↓
-              </IconBtn>
-              <IconBtn label="Remove" onClick={() => remove(id)} danger>
-                ×
-              </IconBtn>
-            </span>
-          </li>
-        ))}
-      </ol>
-      <div className="mt-2">
-        <AddPlayer
-          players={players}
-          exclude={exclude}
-          onAdd={add}
-          label={addLabel}
-        />
-      </div>
-    </div>
   );
 }
 
