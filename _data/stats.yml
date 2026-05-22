@@ -43,3 +43,12 @@ batting_totals:
 
 pitching:
   - { num: 3, name: "Kortlyn C.", ip: "4.0", h: 6, r: 8, er: 7, bb: 7, so: 10, era: "10.50", whip: "3.250", w: 0, l: 1 }
+
+# Fielding (from the GameChanger fielding export). Uncomment and fill in one row
+# per player to light up the coaches-portal Stats > Fielding table. Use the same
+# field-name style as above: num, name, then g, po, a, e, fpct (fpct quoted, e.g.
+# ".938"). Optional tc/dp are captured if present, ignored otherwise. See
+# coaches-portal/SETUP.md for the full schema.
+# fielding:
+#   - { num: 1,  name: "Kyla W.",   g: 5, po: 12, a: 3, e: 1, fpct: ".938" }
+#   - { num: 22, name: "Tyndle M.", g: 5, po: 20, a: 8, e: 0, fpct: "1.000" }
