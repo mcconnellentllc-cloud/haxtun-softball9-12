@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listActivePlayers, createPlayer, logActivity } from "@/lib/airtable";
+import { withErrorHandling } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
 const noStore = { "Cache-Control": "no-store" };
 
-export async function GET() {
+export const GET = withErrorHandling(async () => {
   const players = await listActivePlayers();
   return NextResponse.json({ players }, { headers: noStore });
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async (req: NextRequest) => {
   const body = (await req.json().catch(() => null)) as {
     firstName?: string;
     lastName?: string;
@@ -42,4 +43,4 @@ export async function POST(req: NextRequest) {
     `${player.firstName} ${player.lastName}`,
   );
   return NextResponse.json({ player }, { status: 201, headers: noStore });
-}
+});
