@@ -21,14 +21,17 @@ type Lineups = {
   B: string[];
 };
 
-// One coach's idea of the starting alignment: a starter at each field
-// position, plus their preferred batting order.
+// One coach's idea for one week: a ranked depth chart at each field position,
+// plus their preferred batting order.
 type Proposal = {
-  positions: Record<string, string>; // position -> player id (one starter per spot)
-  order: string[]; // batting order, player ids
+  positions: Record<string, string[]>; // position -> ranked player ids (this coach's depth)
+  order: string[]; // starting batting order, player ids
+  subs: string[]; // substitutes for the batting lineup, player ids
 };
-// coach name -> their proposal
-type Proposals = Record<string, Proposal>;
+// coach name -> their proposal, within a single week
+type WeekProposals = Record<string, Proposal>;
+// week key (YYYY-MM-DD) -> that week's per-coach proposals
+type Proposals = Record<string, WeekProposals>;
 
 /* ---------------------------- Constants -------------------------- */
 
@@ -73,25 +76,37 @@ function normalizeLineups(raw: unknown): Lineups {
   return { A: asIdList(src.A), B: asIdList(src.B) };
 }
 
+function normalizeProposal(raw: unknown): Proposal {
+  const p = (raw && typeof raw === "object" ? raw : {}) as Record<
+    string,
+    unknown
+  >;
+  const posSrc = (p.positions && typeof p.positions === "object"
+    ? p.positions
+    : {}) as Record<string, unknown>;
+  const positions: Record<string, string[]> = {};
+  for (const pos of POSITIONS) positions[pos] = asIdList(posSrc[pos]);
+  return { positions, order: asIdList(p.order), subs: asIdList(p.subs) };
+}
+
+function normalizeWeek(raw: unknown): WeekProposals {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Record<
+    string,
+    unknown
+  >;
+  const out: WeekProposals = {};
+  for (const coach of COACHES) out[coach] = normalizeProposal(src[coach]);
+  return out;
+}
+
 function normalizeProposals(raw: unknown): Proposals {
   const src = (raw && typeof raw === "object" ? raw : {}) as Record<
     string,
     unknown
   >;
   const out: Proposals = {};
-  for (const coach of COACHES) {
-    const p = (src[coach] && typeof src[coach] === "object"
-      ? src[coach]
-      : {}) as Record<string, unknown>;
-    const posSrc = (p.positions && typeof p.positions === "object"
-      ? p.positions
-      : {}) as Record<string, unknown>;
-    const positions: Record<string, string> = {};
-    for (const pos of POSITIONS) {
-      const v = posSrc[pos];
-      if (typeof v === "string" && v) positions[pos] = v;
-    }
-    out[coach] = { positions, order: asIdList(p.order) };
+  for (const key of Object.keys(src)) {
+    if (src[key] && typeof src[key] === "object") out[key] = normalizeWeek(src[key]);
   }
   return out;
 }
@@ -679,14 +694,34 @@ function BattingOrder({
 
 /* ----------------------------- Compare --------------------------- */
 
-const EMPTY_PROPOSAL: Proposal = { positions: {}, order: [] };
+const EMPTY_PROPOSAL: Proposal = { positions: {}, order: [], subs: [] };
 
-// Which coaches have entered anything at all.
-function submittedCoaches(proposals: Proposals): string[] {
-  return COACHES.filter((c) => {
-    const p = proposals[c];
-    return p && (Object.keys(p.positions).length > 0 || p.order.length > 0);
+// Local date as YYYY-MM-DD (used as the week key).
+function todayKey(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function formatWeek(key: string): string {
+  const d = new Date(`${key}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return key;
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
+}
+
+// Has this coach entered anything for the week?
+function hasProposal(p: Proposal | undefined): boolean {
+  if (!p) return false;
+  return (
+    p.order.length > 0 ||
+    p.subs.length > 0 ||
+    POSITIONS.some((pos) => (p.positions[pos] ?? []).length > 0)
+  );
 }
 
 type RowStatus = "agree" | "differ" | "single" | "none";
@@ -697,6 +732,16 @@ function rowStatus(picks: (string | undefined)[]): RowStatus {
   if (given.length === 0) return "none";
   const distinct = new Set(given);
   if (distinct.size === 1) return given.length >= 2 ? "agree" : "single";
+  return "differ";
+}
+
+// Compare per-coach lists as unordered sets (used for the subs bench, where
+// who's available matters more than the order).
+function setStatus(lists: string[][]): RowStatus {
+  const given = lists.filter((l) => l.length > 0);
+  if (given.length === 0) return "none";
+  const keys = new Set(given.map((l) => [...l].sort().join("|")));
+  if (keys.size === 1) return given.length >= 2 ? "agree" : "single";
   return "differ";
 }
 
@@ -715,43 +760,157 @@ function ComparePanel({
   onChooseCoach: (name: string) => void;
   onChange: (next: Proposals) => void;
 }) {
+  // Newest week first.
+  const weeks = Object.keys(proposals).sort().reverse();
+  const [week, setWeek] = useState<string>("");
+
+  // Default to the latest week; recover if the selected week disappears.
+  useEffect(() => {
+    if (weeks.length === 0) {
+      if (week) setWeek("");
+    } else if (!week || !weeks.includes(week)) {
+      setWeek(weeks[0]);
+    }
+  }, [proposals]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (players.length === 0) return <EmptyRoster what="comparison" />;
+
+  // Optionally carry a coach's picks forward when starting a new week, so they
+  // tweak last week rather than rebuild from scratch.
+  const addWeek = (key: string, copyFrom?: string) => {
+    if (!key) return;
+    const base = copyFrom ? proposals[copyFrom] : undefined;
+    onChange({ ...proposals, [key]: proposals[key] ?? base ?? {} });
+    setWeek(key);
+  };
+
+  const weekProps: WeekProposals = (week ? proposals[week] : undefined) ?? {};
 
   return (
     <section className="space-y-5">
-      {coach ? (
-        <MyProposalEditor
-          players={players}
-          byId={byId}
-          coach={coach}
-          proposal={proposals[coach] ?? EMPTY_PROPOSAL}
-          onChange={(mine) => onChange({ ...proposals, [coach]: mine })}
-        />
-      ) : (
-        <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-          <h3 className="font-display text-xl tracking-wider text-neutral-200">
-            Your proposal
-          </h3>
-          <p className="mt-1 text-sm text-neutral-400">
-            Pick which coach you are to enter where players should play:
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {COACHES.map((c) => (
-              <button
-                key={c}
-                onClick={() => onChooseCoach(c)}
-                className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 text-sm hover:border-red-600"
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <WeekBar
+        weeks={weeks}
+        week={week}
+        latest={weeks[0]}
+        onSelect={setWeek}
+        onAdd={addWeek}
+      />
 
-      <PositionsCompare byId={byId} proposals={proposals} />
-      <BattingCompare byId={byId} proposals={proposals} />
+      {weeks.length === 0 ? (
+        <div className="rounded border border-neutral-800 bg-neutral-900 p-6 text-neutral-400">
+          No weeks yet. Add a week above, then each coach can enter where
+          players should play and in what order.
+        </div>
+      ) : !week ? null : (
+        <>
+          {coach ? (
+            <MyProposalEditor
+              players={players}
+              byId={byId}
+              coach={coach}
+              week={week}
+              proposal={weekProps[coach] ?? EMPTY_PROPOSAL}
+              onChange={(mine) =>
+                onChange({
+                  ...proposals,
+                  [week]: { ...weekProps, [coach]: mine },
+                })
+              }
+            />
+          ) : (
+            <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+              <h3 className="font-display text-xl tracking-wider text-neutral-200">
+                Your proposal
+              </h3>
+              <p className="mt-1 text-sm text-neutral-400">
+                Pick which coach you are to enter where players should play:
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {COACHES.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => onChooseCoach(c)}
+                    className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 text-sm hover:border-red-600"
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <PositionsCompare byId={byId} weekProps={weekProps} />
+          <BattingCompare byId={byId} weekProps={weekProps} />
+        </>
+      )}
     </section>
+  );
+}
+
+function WeekBar({
+  weeks,
+  week,
+  latest,
+  onSelect,
+  onAdd,
+}: {
+  weeks: string[];
+  week: string;
+  latest: string | undefined;
+  onSelect: (key: string) => void;
+  onAdd: (key: string, copyFrom?: string) => void;
+}) {
+  const [draft, setDraft] = useState(todayKey());
+  const [copyLast, setCopyLast] = useState(true);
+
+  return (
+    <div className="rounded border border-neutral-800 bg-neutral-900 p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-display text-lg tracking-wider text-neutral-200">
+          Week
+        </span>
+        {weeks.length > 0 ? (
+          <select
+            value={week}
+            onChange={(e) => onSelect(e.target.value)}
+            className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-red-600"
+          >
+            {weeks.map((w) => (
+              <option key={w} value={w}>
+                {formatWeek(w)}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="text-sm text-neutral-500">none yet</span>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          <input
+            type="date"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-red-600"
+          />
+          <button
+            onClick={() => onAdd(draft, copyLast ? latest : undefined)}
+            className="rounded bg-red-600 px-3 py-1 font-display text-sm tracking-wider text-white hover:bg-red-500"
+          >
+            Add week
+          </button>
+        </div>
+      </div>
+      {weeks.length > 0 && (
+        <label className="mt-2 flex items-center gap-2 text-xs text-neutral-400">
+          <input
+            type="checkbox"
+            checked={copyLast}
+            onChange={(e) => setCopyLast(e.target.checked)}
+          />
+          Start the new week from the latest week&rsquo;s picks
+        </label>
+      )}
+    </div>
   );
 }
 
@@ -759,30 +918,49 @@ function MyProposalEditor({
   players,
   byId,
   coach,
+  week,
   proposal,
   onChange,
 }: {
   players: Player[];
   byId: Map<string, Player>;
   coach: string;
+  week: string;
   proposal: Proposal;
   onChange: (next: Proposal) => void;
 }) {
-  // Assigning a player to a position removes them from any other position so a
-  // coach's starting nine never lists the same girl twice.
-  const setPosition = (pos: string, id: string) => {
-    const positions: Record<string, string> = {};
-    for (const [k, v] of Object.entries(proposal.positions)) {
-      if (v !== id) positions[k] = v;
-    }
-    if (id) positions[pos] = id;
-    else delete positions[pos];
-    onChange({ ...proposal, positions });
+  const addPos = (pos: string, id: string) => {
+    const list = proposal.positions[pos] ?? [];
+    if (list.includes(id)) return;
+    onChange({
+      ...proposal,
+      positions: { ...proposal.positions, [pos]: [...list, id] },
+    });
+  };
+  const removePos = (pos: string, id: string) =>
+    onChange({
+      ...proposal,
+      positions: {
+        ...proposal.positions,
+        [pos]: (proposal.positions[pos] ?? []).filter((x) => x !== id),
+      },
+    });
+  const movePos = (pos: string, idx: number, dir: -1 | 1) => {
+    const list = [...(proposal.positions[pos] ?? [])];
+    const j = idx + dir;
+    if (j < 0 || j >= list.length) return;
+    [list[idx], list[j]] = [list[j], list[idx]];
+    onChange({ ...proposal, positions: { ...proposal.positions, [pos]: list } });
   };
 
   const addBatter = (id: string) => {
     if (proposal.order.includes(id)) return;
-    onChange({ ...proposal, order: [...proposal.order, id] });
+    // A player is either a starter or a sub, never both.
+    onChange({
+      ...proposal,
+      order: [...proposal.order, id],
+      subs: proposal.subs.filter((x) => x !== id),
+    });
   };
   const removeBatter = (id: string) =>
     onChange({ ...proposal, order: proposal.order.filter((x) => x !== id) });
@@ -794,7 +972,26 @@ function MyProposalEditor({
     onChange({ ...proposal, order: list });
   };
 
-  const taken = new Set(Object.values(proposal.positions));
+  const addSub = (id: string) => {
+    if (proposal.subs.includes(id)) return;
+    onChange({
+      ...proposal,
+      subs: [...proposal.subs, id],
+      order: proposal.order.filter((x) => x !== id),
+    });
+  };
+  const removeSub = (id: string) =>
+    onChange({ ...proposal, subs: proposal.subs.filter((x) => x !== id) });
+  const moveSub = (idx: number, dir: -1 | 1) => {
+    const list = [...proposal.subs];
+    const j = idx + dir;
+    if (j < 0 || j >= list.length) return;
+    [list[idx], list[j]] = [list[j], list[idx]];
+    onChange({ ...proposal, subs: list });
+  };
+
+  // Starters and subs draw from the same pool — exclude both lists everywhere.
+  const battingTaken = new Set([...proposal.order, ...proposal.subs]);
 
   return (
     <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
@@ -802,40 +999,63 @@ function MyProposalEditor({
         Your proposal
       </h2>
       <p className="mt-1 text-sm text-neutral-400">
-        Entering as <span className="text-neutral-100">{coach}</span>
+        Entering as <span className="text-neutral-100">{coach}</span> for the
+        week of <span className="text-neutral-100">{formatWeek(week)}</span>
       </p>
 
       <h3 className="mt-4 font-display text-lg tracking-wider text-neutral-200">
-        Positions
+        Positions <span className="text-sm text-neutral-500">(starter first)</span>
       </h3>
       <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {POSITIONS.map((pos) => {
-          const current = proposal.positions[pos] ?? "";
-          // Allow the player already in this slot plus anyone not taken.
-          const options = players.filter(
-            (p) => p.id === current || !taken.has(p.id),
-          );
+          const list = proposal.positions[pos] ?? [];
           return (
-            <label
+            <div
               key={pos}
-              className="flex items-center gap-2 rounded bg-black/40 px-2 py-1.5"
+              className="rounded border border-neutral-800 bg-black/40 p-2.5"
             >
-              <span className="w-8 shrink-0 font-display text-lg tracking-wider text-red-500">
+              <h4 className="font-display text-xl tracking-wider text-red-500">
                 {pos}
-              </span>
-              <select
-                value={current}
-                onChange={(e) => setPosition(pos, e.target.value)}
-                className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-red-600"
-              >
-                <option value="">—</option>
-                {options.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {jerseyTag(p)} {p.firstName} {p.lastName}
-                  </option>
+              </h4>
+              <ol className="mt-1 space-y-1">
+                {list.length === 0 && (
+                  <li className="text-xs text-neutral-600">No one assigned</li>
+                )}
+                {list.map((id, idx) => (
+                  <li
+                    key={id}
+                    className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
+                  >
+                    <span className="truncate">
+                      <span className="text-neutral-500">{idx + 1}.</span>{" "}
+                      <PlayerName p={byId.get(id)} />
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      <IconBtn label="Up" onClick={() => movePos(pos, idx, -1)}>
+                        ↑
+                      </IconBtn>
+                      <IconBtn label="Down" onClick={() => movePos(pos, idx, 1)}>
+                        ↓
+                      </IconBtn>
+                      <IconBtn
+                        label="Remove"
+                        onClick={() => removePos(pos, id)}
+                        danger
+                      >
+                        ×
+                      </IconBtn>
+                    </span>
+                  </li>
                 ))}
-              </select>
-            </label>
+              </ol>
+              <div className="mt-1.5">
+                <AddPlayer
+                  players={players}
+                  exclude={new Set(list)}
+                  onAdd={(id) => addPos(pos, id)}
+                />
+              </div>
+            </div>
           );
         })}
       </div>
@@ -875,9 +1095,50 @@ function MyProposalEditor({
       <div className="mt-2">
         <AddPlayer
           players={players}
-          exclude={new Set(proposal.order)}
+          exclude={battingTaken}
           onAdd={addBatter}
           label="Add batter…"
+        />
+      </div>
+
+      <h3 className="mt-5 font-display text-lg tracking-wider text-neutral-200">
+        Subs <span className="text-sm text-neutral-500">(off the bench)</span>
+      </h3>
+      <ol className="mt-2 space-y-1">
+        {proposal.subs.length === 0 && (
+          <li className="text-xs text-neutral-600">No subs yet</li>
+        )}
+        {proposal.subs.map((id, idx) => (
+          <li
+            key={id}
+            className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
+          >
+            <span className="truncate">
+              <span className="inline-block w-5 text-neutral-500">
+                {idx + 1}.
+              </span>{" "}
+              <PlayerName p={byId.get(id)} />
+            </span>
+            <span className="flex shrink-0 items-center gap-1">
+              <IconBtn label="Up" onClick={() => moveSub(idx, -1)}>
+                ↑
+              </IconBtn>
+              <IconBtn label="Down" onClick={() => moveSub(idx, 1)}>
+                ↓
+              </IconBtn>
+              <IconBtn label="Remove" onClick={() => removeSub(id)} danger>
+                ×
+              </IconBtn>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-2">
+        <AddPlayer
+          players={players}
+          exclude={battingTaken}
+          onAdd={addSub}
+          label="Add sub…"
         />
       </div>
     </div>
@@ -914,13 +1175,8 @@ function CompareCell({
   );
 }
 
-function CoachPick({
-  coach,
-  p,
-}: {
-  coach: string;
-  p: Player | undefined;
-}) {
+// One coach's single pick (used by the batting-order comparison).
+function CoachPick({ coach, p }: { coach: string; p: Player | undefined }) {
   return (
     <li className="flex items-center justify-between gap-2 py-0.5 text-sm">
       <span className="text-neutral-400">{coach}</span>
@@ -935,17 +1191,56 @@ function CoachPick({
   );
 }
 
+// One coach's ranked depth list (used by the positions comparison). The
+// starter is emphasized; deeper names are dimmed.
+function CoachRanked({
+  coach,
+  ids,
+  byId,
+}: {
+  coach: string;
+  ids: string[];
+  byId: Map<string, Player>;
+}) {
+  return (
+    <li className="flex items-start justify-between gap-2 py-0.5 text-sm">
+      <span className="shrink-0 text-neutral-400">{coach}</span>
+      <span className="min-w-0 text-right">
+        {ids.length === 0 ? (
+          <span className="text-neutral-600">—</span>
+        ) : (
+          ids.map((id, i) => {
+            const p = byId.get(id);
+            const text = p ? `${jerseyTag(p)} ${p.firstName}` : "?";
+            return (
+              <span
+                key={id}
+                className={i === 0 ? "text-neutral-100" : "text-neutral-500"}
+              >
+                {i > 0 ? ", " : ""}
+                {text}
+              </span>
+            );
+          })
+        )}
+      </span>
+    </li>
+  );
+}
+
 function PositionsCompare({
   byId,
-  proposals,
+  weekProps,
 }: {
   byId: Map<string, Player>;
-  proposals: Proposals;
+  weekProps: WeekProposals;
 }) {
-  const submitted = submittedCoaches(proposals);
+  const any = COACHES.some((c) => hasProposal(weekProps[c]));
+  // Agreement is judged on the starter (top of each coach's depth list).
   const rows = POSITIONS.map((pos) => {
-    const picks = COACHES.map((c) => proposals[c]?.positions?.[pos]);
-    return { pos, picks, status: rowStatus(picks) };
+    const lists = COACHES.map((c) => weekProps[c]?.positions?.[pos] ?? []);
+    const starters = lists.map((l) => l[0]);
+    return { pos, lists, status: rowStatus(starters) };
   });
   const agree = rows.filter((r) => r.status === "agree").length;
   const differ = rows.filter((r) => r.status === "differ").length;
@@ -962,13 +1257,17 @@ function PositionsCompare({
           <span className="text-red-400">{differ} differ</span>
         </p>
       </div>
-      {submitted.length === 0 ? (
+      <p className="mt-0.5 text-xs text-neutral-500">
+        Agree/Differs compares each coach&rsquo;s starter (top pick) per position.
+      </p>
+      {!any ? (
         <p className="mt-2 text-sm text-neutral-400">
-          No proposals yet. Enter yours above to start the comparison.
+          No proposals for this week yet. Enter yours above to start the
+          comparison.
         </p>
       ) : (
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {rows.map(({ pos, picks, status }) => {
+          {rows.map(({ pos, lists, status }) => {
             const badge = STATUS_BADGE[status];
             return (
               <CompareCell key={pos} status={status}>
@@ -980,7 +1279,7 @@ function PositionsCompare({
                 </div>
                 <ul className="mt-1">
                   {COACHES.map((c, i) => (
-                    <CoachPick key={c} coach={c} p={byId.get(picks[i] ?? "")} />
+                    <CoachRanked key={c} coach={c} ids={lists[i]} byId={byId} />
                   ))}
                 </ul>
               </CompareCell>
@@ -994,19 +1293,26 @@ function PositionsCompare({
 
 function BattingCompare({
   byId,
-  proposals,
+  weekProps,
 }: {
   byId: Map<string, Player>;
-  proposals: Proposals;
+  weekProps: WeekProposals;
 }) {
-  const submitted = submittedCoaches(proposals);
-  const maxLen = Math.max(0, ...COACHES.map((c) => proposals[c]?.order.length ?? 0));
+  const any = COACHES.some((c) => hasProposal(weekProps[c]));
+  const maxLen = Math.max(
+    0,
+    ...COACHES.map((c) => weekProps[c]?.order.length ?? 0),
+  );
   const rows = Array.from({ length: maxLen }, (_, i) => {
-    const picks = COACHES.map((c) => proposals[c]?.order?.[i]);
+    const picks = COACHES.map((c) => weekProps[c]?.order?.[i]);
     return { slot: i, picks, status: rowStatus(picks) };
   });
   const agree = rows.filter((r) => r.status === "agree").length;
   const differ = rows.filter((r) => r.status === "differ").length;
+
+  const subLists = COACHES.map((c) => weekProps[c]?.subs ?? []);
+  const subsStatus = setStatus(subLists);
+  const anySubs = subLists.some((l) => l.length > 0);
 
   return (
     <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
@@ -1020,31 +1326,68 @@ function BattingCompare({
           <span className="text-red-400">{differ} differ</span>
         </p>
       </div>
-      {submitted.length === 0 ? (
+      {!any ? (
         <p className="mt-2 text-sm text-neutral-400">
-          No proposals yet. Enter yours above to start the comparison.
+          No proposals for this week yet. Enter yours above to start the
+          comparison.
         </p>
       ) : (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {rows.map(({ slot, picks, status }) => {
-            const badge = STATUS_BADGE[status];
-            return (
-              <CompareCell key={slot} status={status}>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display text-xl tracking-wider text-red-500">
-                    {slot + 1}
-                  </h3>
-                  <span className={"text-xs " + badge.cls}>{badge.label}</span>
-                </div>
-                <ul className="mt-1">
-                  {COACHES.map((c, i) => (
-                    <CoachPick key={c} coach={c} p={byId.get(picks[i] ?? "")} />
-                  ))}
-                </ul>
-              </CompareCell>
-            );
-          })}
-        </div>
+        <>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {rows.map(({ slot, picks, status }) => {
+              const badge = STATUS_BADGE[status];
+              return (
+                <CompareCell key={slot} status={status}>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-display text-xl tracking-wider text-red-500">
+                      {slot + 1}
+                    </h3>
+                    <span className={"text-xs " + badge.cls}>{badge.label}</span>
+                  </div>
+                  <ul className="mt-1">
+                    {COACHES.map((c, i) => (
+                      <CoachPick key={c} coach={c} p={byId.get(picks[i] ?? "")} />
+                    ))}
+                  </ul>
+                </CompareCell>
+              );
+            })}
+          </div>
+
+          {anySubs && (
+            <>
+              <h3 className="mt-4 font-display text-lg tracking-wider text-neutral-200">
+                Subs
+              </h3>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Agree/Differs compares each coach&rsquo;s bench as a group,
+                ignoring order.
+              </p>
+              <div className="mt-2">
+                <CompareCell status={subsStatus}>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-display text-lg tracking-wider text-red-500">
+                      Bench
+                    </h4>
+                    <span className={"text-xs " + STATUS_BADGE[subsStatus].cls}>
+                      {STATUS_BADGE[subsStatus].label}
+                    </span>
+                  </div>
+                  <ul className="mt-1">
+                    {COACHES.map((c, i) => (
+                      <CoachRanked
+                        key={c}
+                        coach={c}
+                        ids={subLists[i]}
+                        byId={byId}
+                      />
+                    ))}
+                  </ul>
+                </CompareCell>
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );
