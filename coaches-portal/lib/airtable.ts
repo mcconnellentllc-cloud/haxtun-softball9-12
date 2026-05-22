@@ -115,12 +115,19 @@ export async function updatePlayer(
 
 export interface PortalState {
   depth_chart: Record<string, unknown>;
+  coach_depth: Record<string, unknown>;
   lineups: Record<string, unknown>;
   proposals: Record<string, unknown>;
   gameplans: Record<string, unknown>;
 }
 
-const STATE_KEYS = ["depth_chart", "lineups", "proposals", "gameplans"] as const;
+const STATE_KEYS = [
+  "depth_chart",
+  "coach_depth",
+  "lineups",
+  "proposals",
+  "gameplans",
+] as const;
 type StateKey = (typeof STATE_KEYS)[number];
 
 function safeParse(s: unknown): Record<string, unknown> {
@@ -143,6 +150,7 @@ export async function getState(): Promise<PortalState> {
   }
   return {
     depth_chart: safeParse(map["depth_chart"]),
+    coach_depth: safeParse(map["coach_depth"]),
     lineups: safeParse(map["lineups"]),
     proposals: safeParse(map["proposals"]),
     gameplans: safeParse(map["gameplans"]),

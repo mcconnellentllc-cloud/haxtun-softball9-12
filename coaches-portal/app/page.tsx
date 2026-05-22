@@ -14,6 +14,8 @@ type Player = {
 
 // position -> ordered list of player ids (depth order, starter first)
 type DepthChart = Record<string, string[]>;
+// coach name -> that coach's overall (persistent) depth chart
+type CoachDepths = Record<string, DepthChart>;
 
 type Choice = "A" | "B";
 type Lineups = {
@@ -21,26 +23,23 @@ type Lineups = {
   B: string[];
 };
 
-// One coach's idea for one week: a ranked depth chart at each field position,
-// plus their preferred batting order.
-type Proposal = {
-  positions: Record<string, string[]>; // position -> ranked player ids (this coach's depth)
-  order: string[]; // starting batting order, player ids
-  subs: string[]; // substitutes for the batting lineup, player ids
+// A defensive assignment for each inning: position -> player id.
+type Defense = Record<string, string>[];
+
+// A defense + batting lineup + bench. Used for both a coach's per-game
+// proposal and the team's actual game plan (same shape).
+type GamePlan = {
+  defense: Defense; // one entry per inning
+  order: string[]; // batting lineup, full game (~2 at-bats)
+  subs: string[]; // bench, rotate in (~1 at-bat)
 };
+// A coach's per-game proposal has the same shape as a game plan.
+type Proposal = GamePlan;
 // coach name -> their proposal, within a single week
 type WeekProposals = Record<string, Proposal>;
 // week key (YYYY-MM-DD) -> that week's per-coach proposals
 type Proposals = Record<string, WeekProposals>;
-
-// The team's actual game plan for one week: a defensive assignment for each
-// inning, plus the batting lineup and bench.
-type GamePlan = {
-  defense: Record<string, string>[]; // one entry per inning; position -> player id
-  order: string[]; // batting lineup, full game (~2 at-bats)
-  subs: string[]; // bench, rotate in (~1 at-bat)
-};
-// week key (YYYY-MM-DD) -> that week's plan
+// week key (YYYY-MM-DD) -> that week's team plan
 type GamePlans = Record<string, GamePlan>;
 
 /* ---------------------------- Constants -------------------------- */
@@ -98,17 +97,18 @@ function normalizeLineups(raw: unknown): Lineups {
   return { A: asIdList(src.A), B: asIdList(src.B) };
 }
 
-function normalizeProposal(raw: unknown): Proposal {
-  const p = (raw && typeof raw === "object" ? raw : {}) as Record<
+function normalizeCoachDepths(raw: unknown): CoachDepths {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Record<
     string,
     unknown
   >;
-  const posSrc = (p.positions && typeof p.positions === "object"
-    ? p.positions
-    : {}) as Record<string, unknown>;
-  const positions: Record<string, string[]> = {};
-  for (const pos of POSITIONS) positions[pos] = asIdList(posSrc[pos]);
-  return { positions, order: asIdList(p.order), subs: asIdList(p.subs) };
+  const out: CoachDepths = {};
+  for (const coach of COACHES) out[coach] = normalizeDepth(src[coach]);
+  return out;
+}
+
+function normalizeProposal(raw: unknown): Proposal {
+  return normalizeGamePlan(raw);
 }
 
 function normalizeWeek(raw: unknown): WeekProposals {
@@ -197,6 +197,9 @@ async function putState(path: string, body: unknown, coach: string | null) {
 export default function Home() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [depth, setDepth] = useState<DepthChart>(() => normalizeDepth({}));
+  const [coachDepths, setCoachDepths] = useState<CoachDepths>(() =>
+    normalizeCoachDepths({}),
+  );
   const [lineups, setLineups] = useState<Lineups>({ A: [], B: [] });
   const [proposals, setProposals] = useState<Proposals>(() =>
     normalizeProposals({}),
@@ -233,6 +236,7 @@ export default function Home() {
         if (cancelled) return;
         setPlayers(Array.isArray(pData.players) ? pData.players : []);
         setDepth(normalizeDepth(sData.depth_chart));
+        setCoachDepths(normalizeCoachDepths(sData.coach_depth));
         setLineups(normalizeLineups(sData.lineups));
         setProposals(normalizeProposals(sData.proposals));
         setGameplans(normalizeGamePlans(sData.gameplans));
@@ -276,6 +280,21 @@ export default function Home() {
       }
     },
     [depth, coach],
+  );
+
+  // Persist per-coach overall depth charts; roll back on failure.
+  const saveCoachDepths = useCallback(
+    async (next: CoachDepths) => {
+      const prev = coachDepths;
+      setCoachDepths(next);
+      try {
+        await putState("/api/state/coach_depth", next, coach);
+      } catch (err) {
+        setCoachDepths(prev);
+        setError(err instanceof Error ? err.message : "Save failed");
+      }
+    },
+    [coachDepths, coach],
   );
 
   // Persist lineups; roll back on failure.
@@ -362,11 +381,17 @@ export default function Home() {
         ) : tab === "roster" ? (
           <RosterPanel players={players} />
         ) : tab === "depth" ? (
-          <DepthPanel
+          <DepthTab
             players={players}
             byId={byId}
+            coach={coach}
             depth={depth}
-            onChange={saveDepth}
+            coachDepths={coachDepths}
+            onChooseCoach={chooseCoach}
+            onSaveTeam={saveDepth}
+            onSaveCoach={(name, next) =>
+              saveCoachDepths({ ...coachDepths, [name]: next })
+            }
           />
         ) : tab === "lineups" ? (
           <LineupsPanel
@@ -380,6 +405,8 @@ export default function Home() {
             players={players}
             byId={byId}
             coach={coach}
+            depth={depth}
+            coachDepths={coachDepths}
             proposals={proposals}
             onChooseCoach={chooseCoach}
             onChange={saveProposals}
@@ -692,6 +719,161 @@ function PositionCounts({
   );
 }
 
+// Depth Chart tab: switch between the shared team chart and each coach's own
+// overall depth chart, then a starters comparison across coaches.
+function DepthTab({
+  players,
+  byId,
+  coach,
+  depth,
+  coachDepths,
+  onChooseCoach,
+  onSaveTeam,
+  onSaveCoach,
+}: {
+  players: Player[];
+  byId: Map<string, Player>;
+  coach: string | null;
+  depth: DepthChart;
+  coachDepths: CoachDepths;
+  onChooseCoach: (name: string) => void;
+  onSaveTeam: (next: DepthChart) => void;
+  onSaveCoach: (name: string, next: DepthChart) => void;
+}) {
+  const [target, setTarget] = useState<string>("team");
+
+  if (players.length === 0) return <EmptyRoster what="depth chart" />;
+
+  const isTeam = target === "team";
+  const current = isTeam ? depth : coachDepths[target] ?? normalizeDepth({});
+  const onChange = isTeam
+    ? onSaveTeam
+    : (next: DepthChart) => onSaveCoach(target, next);
+
+  const choices = ["team", ...COACHES];
+
+  return (
+    <section className="space-y-5">
+      <div className="rounded border border-neutral-800 bg-neutral-900 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-display text-lg tracking-wider text-neutral-200">
+            Editing
+          </span>
+          {choices.map((c) => (
+            <button
+              key={c}
+              onClick={() => setTarget(c)}
+              className={
+                "rounded px-3 py-1 text-sm tracking-wider transition-colors " +
+                (target === c
+                  ? "bg-red-600 text-white"
+                  : "border border-neutral-700 bg-black/40 text-neutral-300 hover:border-red-600")
+              }
+            >
+              {c === "team" ? "Team" : c}
+            </button>
+          ))}
+          {!isTeam && coach !== target && (
+            <button
+              onClick={() => onChooseCoach(target)}
+              className="ml-auto text-xs text-neutral-500 hover:text-neutral-300"
+            >
+              (you&rsquo;re editing {target}&rsquo;s chart)
+            </button>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-neutral-500">
+          {isTeam
+            ? "Shared team depth chart — also drives the Game Plan auto-draft."
+            : `${target}'s overall depth chart.`}
+        </p>
+      </div>
+
+      <DepthPanel
+        players={players}
+        byId={byId}
+        depth={current}
+        onChange={onChange}
+      />
+
+      <DepthCompare byId={byId} depth={depth} coachDepths={coachDepths} />
+    </section>
+  );
+}
+
+// Per-position starter comparison across coaches (with the team chart shown as
+// a reference).
+function DepthCompare({
+  byId,
+  depth,
+  coachDepths,
+}: {
+  byId: Map<string, Player>;
+  depth: DepthChart;
+  coachDepths: CoachDepths;
+}) {
+  const any = COACHES.some((c) =>
+    POSITIONS.some((pos) => (coachDepths[c]?.[pos] ?? []).length > 0),
+  );
+  const rows = POSITIONS.map((pos) => {
+    const starters = COACHES.map((c) => coachDepths[c]?.[pos]?.[0]);
+    return { pos, starters, team: depth[pos]?.[0], status: rowStatus(starters) };
+  });
+  const agree = rows.filter((r) => r.status === "agree").length;
+  const differ = rows.filter((r) => r.status === "differ").length;
+
+  return (
+    <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+          Starters compared
+        </h2>
+        <p className="text-sm">
+          <span className="text-emerald-400">{agree} agree</span>
+          <span className="text-neutral-600"> · </span>
+          <span className="text-red-400">{differ} differ</span>
+        </p>
+      </div>
+      {!any ? (
+        <p className="mt-2 text-sm text-neutral-400">
+          No coach depth charts yet. Pick a coach above to fill one in.
+        </p>
+      ) : (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map(({ pos, starters, team, status }) => {
+            const badge = STATUS_BADGE[status];
+            return (
+              <CompareCell key={pos} status={status}>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-xl tracking-wider text-red-500">
+                    {pos}
+                  </h3>
+                  <span className={"text-xs " + badge.cls}>{badge.label}</span>
+                </div>
+                <ul className="mt-1">
+                  <li className="flex items-center justify-between gap-2 py-0.5 text-sm">
+                    <span className="text-neutral-500">Team</span>
+                    {team ? (
+                      <span className="truncate text-neutral-300">
+                        <PlayerName p={byId.get(team)} />
+                      </span>
+                    ) : (
+                      <span className="text-neutral-600">—</span>
+                    )}
+                  </li>
+                  {COACHES.map((c, i) => (
+                    <CoachPick key={c} coach={c} p={byId.get(starters[i] ?? "")} />
+                  ))}
+                </ul>
+              </CompareCell>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------------------------- Lineups ---------------------------- */
 
 function LineupsPanel({
@@ -794,9 +976,15 @@ function BattingOrder({
   );
 }
 
-/* ----------------------------- Compare --------------------------- */
+/* --------------------- Plans, compare & game plan ---------------- */
 
-const EMPTY_PROPOSAL: Proposal = { positions: {}, order: [], subs: [] };
+function emptyDefense(): Defense {
+  return Array.from({ length: INNINGS }, () => ({}));
+}
+
+function emptyGamePlan(): GamePlan {
+  return { defense: emptyDefense(), order: [], subs: [] };
+}
 
 // Local date as YYYY-MM-DD (used as the week key).
 function todayKey(): string {
@@ -816,14 +1004,27 @@ function formatWeek(key: string): string {
   });
 }
 
-// Has this coach entered anything for the week?
-function hasProposal(p: Proposal | undefined): boolean {
+// Has anything been entered in this plan/proposal?
+function hasPlan(p: GamePlan | undefined): boolean {
   if (!p) return false;
   return (
     p.order.length > 0 ||
     p.subs.length > 0 ||
-    POSITIONS.some((pos) => (p.positions[pos] ?? []).length > 0)
+    p.defense.some((inn) => Object.keys(inn).length > 0)
   );
+}
+
+// Field innings = number of innings a girl is assigned a field position.
+function fieldInningsOf(defense: Defense, id: string): number {
+  return defense.reduce(
+    (n, inn) => n + (Object.values(inn).includes(id) ? 1 : 0),
+    0,
+  );
+}
+
+// At-bats: batting lineup ≈ 2, bench subs ≈ 1, otherwise 0.
+function atBatsOf(plan: GamePlan, id: string): number {
+  return plan.order.includes(id) ? 2 : plan.subs.includes(id) ? 1 : 0;
 }
 
 type RowStatus = "agree" | "differ" | "single" | "none";
@@ -851,6 +1052,8 @@ function ComparePanel({
   players,
   byId,
   coach,
+  depth,
+  coachDepths,
   proposals,
   onChooseCoach,
   onChange,
@@ -858,6 +1061,8 @@ function ComparePanel({
   players: Player[];
   byId: Map<string, Player>;
   coach: string | null;
+  depth: DepthChart;
+  coachDepths: CoachDepths;
   proposals: Proposals;
   onChooseCoach: (name: string) => void;
   onChange: (next: Proposals) => void;
@@ -877,8 +1082,6 @@ function ComparePanel({
 
   if (players.length === 0) return <EmptyRoster what="comparison" />;
 
-  // Optionally carry a coach's picks forward when starting a new week, so they
-  // tweak last week rather than rebuild from scratch.
   const addWeek = (key: string, copyFrom?: string) => {
     if (!key) return;
     const base = copyFrom ? proposals[copyFrom] : undefined;
@@ -887,6 +1090,13 @@ function ComparePanel({
   };
 
   const weekProps: WeekProposals = (week ? proposals[week] : undefined) ?? {};
+
+  // A coach drafts from their own overall depth chart, falling back to the
+  // shared team chart if they haven't built one.
+  const myDepth =
+    coach && POSITIONS.some((pos) => (coachDepths[coach]?.[pos] ?? []).length > 0)
+      ? coachDepths[coach]
+      : depth;
 
   return (
     <section className="space-y-5">
@@ -900,32 +1110,44 @@ function ComparePanel({
 
       {weeks.length === 0 ? (
         <div className="rounded border border-neutral-800 bg-neutral-900 p-6 text-neutral-400">
-          No weeks yet. Add a week above, then each coach can enter where
-          players should play and in what order.
+          No games yet. Add a game date above, then each coach can propose a
+          defense and lineup.
         </div>
       ) : !week ? null : (
         <>
           {coach ? (
-            <MyProposalEditor
-              players={players}
-              byId={byId}
-              coach={coach}
-              week={week}
-              proposal={weekProps[coach] ?? EMPTY_PROPOSAL}
-              onChange={(mine) =>
-                onChange({
-                  ...proposals,
-                  [week]: { ...weekProps, [coach]: mine },
-                })
-              }
-            />
+            <div className="space-y-5">
+              <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+                <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+                  Your proposal
+                </h2>
+                <p className="mt-1 text-sm text-neutral-400">
+                  Entering as <span className="text-neutral-100">{coach}</span>{" "}
+                  for the game on{" "}
+                  <span className="text-neutral-100">{formatWeek(week)}</span>
+                </p>
+              </div>
+              <PlanEditor
+                players={players}
+                byId={byId}
+                draftDepth={myDepth}
+                draftLabel="Draft from my depth chart"
+                plan={weekProps[coach] ?? emptyGamePlan()}
+                onChange={(mine) =>
+                  onChange({
+                    ...proposals,
+                    [week]: { ...weekProps, [coach]: mine },
+                  })
+                }
+              />
+            </div>
           ) : (
             <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
               <h3 className="font-display text-xl tracking-wider text-neutral-200">
                 Your proposal
               </h3>
               <p className="mt-1 text-sm text-neutral-400">
-                Pick which coach you are to enter where players should play:
+                Pick which coach you are to propose a defense and lineup:
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {COACHES.map((c) => (
@@ -941,7 +1163,7 @@ function ComparePanel({
             </div>
           )}
 
-          <PositionsCompare byId={byId} weekProps={weekProps} />
+          <DefenseCompare byId={byId} weekProps={weekProps} />
           <BattingCompare byId={byId} weekProps={weekProps} />
         </>
       )}
@@ -1016,233 +1238,241 @@ function WeekBar({
   );
 }
 
-function MyProposalEditor({
+// Editor for a defense + lineup + subs. Shared by the per-coach proposal and
+// the team game plan, since they're the same shape.
+function PlanEditor({
   players,
   byId,
-  coach,
-  week,
-  proposal,
+  draftDepth,
+  draftLabel,
+  plan,
   onChange,
 }: {
   players: Player[];
   byId: Map<string, Player>;
-  coach: string;
-  week: string;
-  proposal: Proposal;
-  onChange: (next: Proposal) => void;
+  draftDepth: DepthChart;
+  draftLabel: string;
+  plan: GamePlan;
+  onChange: (next: GamePlan) => void;
 }) {
-  const addPos = (pos: string, id: string) => {
-    const list = proposal.positions[pos] ?? [];
-    if (list.includes(id)) return;
-    onChange({
-      ...proposal,
-      positions: { ...proposal.positions, [pos]: [...list, id] },
-    });
-  };
-  const removePos = (pos: string, id: string) =>
-    onChange({
-      ...proposal,
-      positions: {
-        ...proposal.positions,
-        [pos]: (proposal.positions[pos] ?? []).filter((x) => x !== id),
-      },
-    });
-  const movePos = (pos: string, idx: number, dir: -1 | 1) => {
-    const list = [...(proposal.positions[pos] ?? [])];
-    const j = idx + dir;
-    if (j < 0 || j >= list.length) return;
-    [list[idx], list[j]] = [list[j], list[idx]];
-    onChange({ ...proposal, positions: { ...proposal.positions, [pos]: list } });
+  const battingTaken = new Set([...plan.order, ...plan.subs]);
+
+  const autoDraft = () => {
+    const defense = draftDefense(players, draftDepth);
+    // Default everyone into the lineup the first time, so the at-bat minimum
+    // is covered out of the gate.
+    const order =
+      plan.order.length === 0 && plan.subs.length === 0
+        ? players.map((p) => p.id)
+        : plan.order;
+    onChange({ ...plan, defense, order });
   };
 
-  const addBatter = (id: string) => {
-    if (proposal.order.includes(id)) return;
-    // A player is either a starter or a sub, never both.
-    onChange({
-      ...proposal,
-      order: [...proposal.order, id],
-      subs: proposal.subs.filter((x) => x !== id),
-    });
-  };
-  const removeBatter = (id: string) =>
-    onChange({ ...proposal, order: proposal.order.filter((x) => x !== id) });
-  const moveBatter = (idx: number, dir: -1 | 1) => {
-    const list = [...proposal.order];
-    const j = idx + dir;
-    if (j < 0 || j >= list.length) return;
-    [list[idx], list[j]] = [list[j], list[idx]];
-    onChange({ ...proposal, order: list });
+  return (
+    <>
+      <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+            Defense{" "}
+            <span className="text-sm text-neutral-500">({INNINGS} innings)</span>
+          </h2>
+          <button
+            onClick={autoDraft}
+            className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500"
+          >
+            {draftLabel}
+          </button>
+        </div>
+        <p className="mt-0.5 text-xs text-neutral-500">
+          Drafts a fair rotation, then leans extra innings toward the strongest
+          players. Adjust any cell below.
+        </p>
+        <DefenseGrid
+          players={players}
+          defense={plan.defense}
+          onChange={(defense) => onChange({ ...plan, defense })}
+        />
+      </div>
+
+      <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+        <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+          Offense
+        </h2>
+        <ListEditor
+          title="Batting lineup"
+          hint="full game · ~2 at-bats"
+          players={players}
+          byId={byId}
+          ids={plan.order}
+          exclude={battingTaken}
+          addLabel="Add batter…"
+          onChange={(order) => onChange({ ...plan, order })}
+        />
+        <ListEditor
+          title="Subs"
+          hint="off the bench · ~1 at-bat"
+          players={players}
+          byId={byId}
+          ids={plan.subs}
+          exclude={battingTaken}
+          addLabel="Add sub…"
+          onChange={(subs) => onChange({ ...plan, subs })}
+        />
+      </div>
+
+      <PlayingTime players={players} byId={byId} plan={plan} />
+    </>
+  );
+}
+
+// The 5-inning defense grid (positions x innings) editor.
+function DefenseGrid({
+  players,
+  defense,
+  onChange,
+}: {
+  players: Player[];
+  defense: Defense;
+  onChange: (next: Defense) => void;
+}) {
+  const setCell = (inning: number, pos: string, id: string) => {
+    const next = defense.map((d, i) => (i === inning ? { ...d } : d));
+    if (id) next[inning][pos] = id;
+    else delete next[inning][pos];
+    onChange(next);
   };
 
-  const addSub = (id: string) => {
-    if (proposal.subs.includes(id)) return;
-    onChange({
-      ...proposal,
-      subs: [...proposal.subs, id],
-      order: proposal.order.filter((x) => x !== id),
-    });
-  };
-  const removeSub = (id: string) =>
-    onChange({ ...proposal, subs: proposal.subs.filter((x) => x !== id) });
-  const moveSub = (idx: number, dir: -1 | 1) => {
-    const list = [...proposal.subs];
-    const j = idx + dir;
-    if (j < 0 || j >= list.length) return;
-    [list[idx], list[j]] = [list[j], list[idx]];
-    onChange({ ...proposal, subs: list });
-  };
+  return (
+    <div className="mt-3 overflow-x-auto">
+      <table className="w-full min-w-[620px] border-collapse text-sm">
+        <thead>
+          <tr className="text-neutral-400">
+            <th className="px-2 py-1 text-left font-display tracking-wider">
+              Pos
+            </th>
+            {Array.from({ length: INNINGS }, (_, i) => (
+              <th
+                key={i}
+                className="px-2 py-1 text-left font-display tracking-wider"
+              >
+                Inn {i + 1}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {POSITIONS.map((pos) => (
+            <tr key={pos} className="border-t border-neutral-800">
+              <th className="px-2 py-1 text-left font-display text-lg tracking-wider text-red-500">
+                {pos}
+              </th>
+              {Array.from({ length: INNINGS }, (_, inning) => {
+                const current = defense[inning]?.[pos] ?? "";
+                const used = new Set(
+                  Object.entries(defense[inning] ?? {})
+                    .filter(([k]) => k !== pos)
+                    .map(([, v]) => v),
+                );
+                const options = players.filter(
+                  (p) => p.id === current || !used.has(p.id),
+                );
+                return (
+                  <td key={inning} className="px-1 py-1">
+                    <select
+                      value={current}
+                      onChange={(e) => setCell(inning, pos, e.target.value)}
+                      className="w-full rounded border border-neutral-700 bg-neutral-900 px-1 py-1 text-sm outline-none focus:border-red-600"
+                    >
+                      <option value="">—</option>
+                      {options.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {jerseyTag(p)} {p.firstName}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
-  // Starters and subs draw from the same pool — exclude both lists everywhere.
-  const battingTaken = new Set([...proposal.order, ...proposal.subs]);
+// Playing-time tally for a plan: field innings + at-bats per girl, flagging
+// anyone below the minimum.
+function PlayingTime({
+  players,
+  byId,
+  plan,
+}: {
+  players: Player[];
+  byId: Map<string, Player>;
+  plan: GamePlan;
+}) {
+  const stats = players
+    .map((p) => {
+      const field = fieldInningsOf(plan.defense, p.id);
+      const atBats = atBatsOf(plan, p.id);
+      return { p, field, atBats, ok: meetsMinimum(field, atBats) };
+    })
+    .sort(
+      (a, b) =>
+        Number(a.ok) - Number(b.ok) ||
+        b.field + b.atBats - (a.field + a.atBats) ||
+        (a.p.jersey ?? 9999) - (b.p.jersey ?? 9999),
+    );
+  const okCount = stats.filter((s) => s.ok).length;
 
   return (
     <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-      <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-        Your proposal
-      </h2>
-      <p className="mt-1 text-sm text-neutral-400">
-        Entering as <span className="text-neutral-100">{coach}</span> for the
-        week of <span className="text-neutral-100">{formatWeek(week)}</span>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+          Playing time
+        </h2>
+        <p className="text-sm">
+          <span
+            className={
+              okCount === stats.length ? "text-emerald-400" : "text-red-400"
+            }
+          >
+            {okCount}/{stats.length} meet the minimum
+          </span>
+        </p>
+      </div>
+      <p className="mt-0.5 text-xs text-neutral-500">
+        Target: 2 field innings + 1 at-bat, or 2 at-bats + 1 field inning.
       </p>
-
-      <h3 className="mt-4 font-display text-lg tracking-wider text-neutral-200">
-        Positions <span className="text-sm text-neutral-500">(starter first)</span>
-      </h3>
-      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {POSITIONS.map((pos) => {
-          const list = proposal.positions[pos] ?? [];
-          return (
-            <div
-              key={pos}
-              className="rounded border border-neutral-800 bg-black/40 p-2.5"
-            >
-              <h4 className="font-display text-xl tracking-wider text-red-500">
-                {pos}
-              </h4>
-              <ol className="mt-1 space-y-1">
-                {list.length === 0 && (
-                  <li className="text-xs text-neutral-600">No one assigned</li>
-                )}
-                {list.map((id, idx) => (
-                  <li
-                    key={id}
-                    className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
-                  >
-                    <span className="truncate">
-                      <span className="text-neutral-500">{idx + 1}.</span>{" "}
-                      <PlayerName p={byId.get(id)} />
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1">
-                      <IconBtn label="Up" onClick={() => movePos(pos, idx, -1)}>
-                        ↑
-                      </IconBtn>
-                      <IconBtn label="Down" onClick={() => movePos(pos, idx, 1)}>
-                        ↓
-                      </IconBtn>
-                      <IconBtn
-                        label="Remove"
-                        onClick={() => removePos(pos, id)}
-                        danger
-                      >
-                        ×
-                      </IconBtn>
-                    </span>
-                  </li>
-                ))}
-              </ol>
-              <div className="mt-1.5">
-                <AddPlayer
-                  players={players}
-                  exclude={new Set(list)}
-                  onAdd={(id) => addPos(pos, id)}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <h3 className="mt-5 font-display text-lg tracking-wider text-neutral-200">
-        Batting order
-      </h3>
-      <ol className="mt-2 space-y-1">
-        {proposal.order.length === 0 && (
-          <li className="text-xs text-neutral-600">No batters yet</li>
-        )}
-        {proposal.order.map((id, idx) => (
+      <ul className="mt-3 divide-y divide-neutral-800">
+        {stats.map(({ p, field, atBats, ok }) => (
           <li
-            key={id}
-            className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
+            key={p.id}
+            className="flex items-center justify-between gap-3 py-2 text-sm"
           >
-            <span className="truncate">
-              <span className="inline-block w-5 text-neutral-500">
-                {idx + 1}.
-              </span>{" "}
-              <PlayerName p={byId.get(id)} />
+            <span className="min-w-0 truncate">
+              <PlayerName p={p} />
             </span>
-            <span className="flex shrink-0 items-center gap-1">
-              <IconBtn label="Up" onClick={() => moveBatter(idx, -1)}>
-                ↑
-              </IconBtn>
-              <IconBtn label="Down" onClick={() => moveBatter(idx, 1)}>
-                ↓
-              </IconBtn>
-              <IconBtn label="Remove" onClick={() => removeBatter(id)} danger>
-                ×
-              </IconBtn>
+            <span className="flex shrink-0 items-center gap-4">
+              <span className="text-neutral-400">
+                <span className="text-neutral-100">{field}</span> field
+              </span>
+              <span className="text-neutral-400">
+                <span className="text-neutral-100">{atBats}</span> AB
+              </span>
+              <span
+                className={
+                  "w-16 text-right font-display text-xs tracking-wider " +
+                  (ok ? "text-emerald-400" : "text-red-400")
+                }
+              >
+                {ok ? "OK" : "Short"}
+              </span>
             </span>
           </li>
         ))}
-      </ol>
-      <div className="mt-2">
-        <AddPlayer
-          players={players}
-          exclude={battingTaken}
-          onAdd={addBatter}
-          label="Add batter…"
-        />
-      </div>
-
-      <h3 className="mt-5 font-display text-lg tracking-wider text-neutral-200">
-        Subs <span className="text-sm text-neutral-500">(off the bench)</span>
-      </h3>
-      <ol className="mt-2 space-y-1">
-        {proposal.subs.length === 0 && (
-          <li className="text-xs text-neutral-600">No subs yet</li>
-        )}
-        {proposal.subs.map((id, idx) => (
-          <li
-            key={id}
-            className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
-          >
-            <span className="truncate">
-              <span className="inline-block w-5 text-neutral-500">
-                {idx + 1}.
-              </span>{" "}
-              <PlayerName p={byId.get(id)} />
-            </span>
-            <span className="flex shrink-0 items-center gap-1">
-              <IconBtn label="Up" onClick={() => moveSub(idx, -1)}>
-                ↑
-              </IconBtn>
-              <IconBtn label="Down" onClick={() => moveSub(idx, 1)}>
-                ↓
-              </IconBtn>
-              <IconBtn label="Remove" onClick={() => removeSub(id)} danger>
-                ×
-              </IconBtn>
-            </span>
-          </li>
-        ))}
-      </ol>
-      <div className="mt-2">
-        <AddPlayer
-          players={players}
-          exclude={battingTaken}
-          onAdd={addSub}
-          label="Add sub…"
-        />
-      </div>
+      </ul>
     </div>
   );
 }
@@ -1330,28 +1560,32 @@ function CoachRanked({
   );
 }
 
-function PositionsCompare({
+function DefenseCompare({
   byId,
   weekProps,
 }: {
   byId: Map<string, Player>;
   weekProps: WeekProposals;
 }) {
-  const any = COACHES.some((c) => hasProposal(weekProps[c]));
-  // Agreement is judged on the starter (top of each coach's depth list).
-  const rows = POSITIONS.map((pos) => {
-    const lists = COACHES.map((c) => weekProps[c]?.positions?.[pos] ?? []);
-    const starters = lists.map((l) => l[0]);
-    return { pos, lists, status: rowStatus(starters) };
+  const any = COACHES.some((c) => hasPlan(weekProps[c]));
+  let agree = 0;
+  let differ = 0;
+  const innings = Array.from({ length: INNINGS }, (_, i) => {
+    const cells = POSITIONS.map((pos) => {
+      const picks = COACHES.map((c) => weekProps[c]?.defense?.[i]?.[pos]);
+      const status = rowStatus(picks);
+      if (status === "agree") agree++;
+      else if (status === "differ") differ++;
+      return { pos, picks, status };
+    });
+    return { inning: i, cells };
   });
-  const agree = rows.filter((r) => r.status === "agree").length;
-  const differ = rows.filter((r) => r.status === "differ").length;
 
   return (
     <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-          Positions
+          Defense
         </h2>
         <p className="text-sm">
           <span className="text-emerald-400">{agree} agree</span>
@@ -1360,34 +1594,47 @@ function PositionsCompare({
         </p>
       </div>
       <p className="mt-0.5 text-xs text-neutral-500">
-        Agree/Differs compares each coach&rsquo;s starter (top pick) per position.
+        Agree/Differs is per position, per inning, across coaches.
       </p>
       {!any ? (
         <p className="mt-2 text-sm text-neutral-400">
-          No proposals for this week yet. Enter yours above to start the
+          No proposals for this game yet. Enter yours above to start the
           comparison.
         </p>
       ) : (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {rows.map(({ pos, lists, status }) => {
-            const badge = STATUS_BADGE[status];
-            return (
-              <CompareCell key={pos} status={status}>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display text-xl tracking-wider text-red-500">
-                    {pos}
-                  </h3>
-                  <span className={"text-xs " + badge.cls}>{badge.label}</span>
-                </div>
-                <ul className="mt-1">
-                  {COACHES.map((c, i) => (
-                    <CoachRanked key={c} coach={c} ids={lists[i]} byId={byId} />
-                  ))}
-                </ul>
-              </CompareCell>
-            );
-          })}
-        </div>
+        innings.map(({ inning, cells }) => (
+          <div key={inning} className="mt-4">
+            <h3 className="font-display text-lg tracking-wider text-neutral-200">
+              Inning {inning + 1}
+            </h3>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {cells.map(({ pos, picks, status }) => {
+                const badge = STATUS_BADGE[status];
+                return (
+                  <CompareCell key={pos} status={status}>
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-display text-lg tracking-wider text-red-500">
+                        {pos}
+                      </h4>
+                      <span className={"text-xs " + badge.cls}>
+                        {badge.label}
+                      </span>
+                    </div>
+                    <ul className="mt-1">
+                      {COACHES.map((c, i) => (
+                        <CoachPick
+                          key={c}
+                          coach={c}
+                          p={byId.get(picks[i] ?? "")}
+                        />
+                      ))}
+                    </ul>
+                  </CompareCell>
+                );
+              })}
+            </div>
+          </div>
+        ))
       )}
     </div>
   );
@@ -1400,7 +1647,7 @@ function BattingCompare({
   byId: Map<string, Player>;
   weekProps: WeekProposals;
 }) {
-  const any = COACHES.some((c) => hasProposal(weekProps[c]));
+  const any = COACHES.some((c) => hasPlan(weekProps[c]));
   const maxLen = Math.max(
     0,
     ...COACHES.map((c) => weekProps[c]?.order.length ?? 0),
@@ -1497,19 +1744,11 @@ function BattingCompare({
 
 /* ---------------------------- Game plan -------------------------- */
 
-function emptyDefense(): Record<string, string>[] {
-  return Array.from({ length: INNINGS }, () => ({}));
-}
-
-function emptyGamePlan(): GamePlan {
-  return { defense: emptyDefense(), order: [], subs: [] };
-}
-
-// Auto-build a fair 5-inning defense from the shared depth chart. Everyone is
-// pushed to the field-inning floor first (so all girls meet the minimum), then
-// the extra innings go to the strongest players (those highest on each
-// position's depth list).
-function draftDefense(players: Player[], depth: DepthChart): Record<string, string>[] {
+// Auto-build a fair 5-inning defense from a depth chart. Everyone is pushed to
+// the field-inning floor first (so all girls meet the minimum), then the extra
+// innings go to the strongest players (those highest on each position's depth
+// list).
+function draftDefense(players: Player[], depth: DepthChart): Defense {
   const FLOOR = 2;
   const ids = new Set(players.map((p) => p.id));
   const field = new Map<string, number>(players.map((p) => [p.id, 0]));
@@ -1591,49 +1830,6 @@ function GamePlanPanel({
   };
 
   const plan: GamePlan = (week ? gameplans[week] : undefined) ?? emptyGamePlan();
-  const update = (next: GamePlan) => onChange({ ...gameplans, [week]: next });
-
-  const setCell = (inning: number, pos: string, id: string) => {
-    const defense = plan.defense.map((d, i) => (i === inning ? { ...d } : d));
-    if (id) defense[inning][pos] = id;
-    else delete defense[inning][pos];
-    update({ ...plan, defense });
-  };
-
-  const autoDraft = () => {
-    const defense = draftDefense(players, depth);
-    // Default everyone into the batting order if no lineup exists yet, so the
-    // at-bat minimum is covered out of the gate.
-    const order =
-      plan.order.length === 0 && plan.subs.length === 0
-        ? players.map((p) => p.id)
-        : plan.order;
-    update({ ...plan, defense, order });
-  };
-
-  const battingTaken = new Set([...plan.order, ...plan.subs]);
-
-  // Playing-time tally per girl.
-  const stats = players
-    .map((p) => {
-      const field = plan.defense.reduce(
-        (n, inn) => n + (Object.values(inn).includes(p.id) ? 1 : 0),
-        0,
-      );
-      const atBats = plan.order.includes(p.id)
-        ? 2
-        : plan.subs.includes(p.id)
-          ? 1
-          : 0;
-      return { p, field, atBats, ok: meetsMinimum(field, atBats) };
-    })
-    .sort(
-      (a, b) =>
-        Number(a.ok) - Number(b.ok) ||
-        b.field + b.atBats - (a.field + a.atBats) ||
-        (a.p.jersey ?? 9999) - (b.p.jersey ?? 9999),
-    );
-  const okCount = stats.filter((s) => s.ok).length;
 
   return (
     <section className="space-y-5">
@@ -1647,164 +1843,17 @@ function GamePlanPanel({
 
       {weeks.length === 0 ? (
         <div className="rounded border border-neutral-800 bg-neutral-900 p-6 text-neutral-400">
-          No game plans yet. Add a week above to build the defense and lineup.
+          No games yet. Add a game date above to build the defense and lineup.
         </div>
       ) : !week ? null : (
-        <>
-          <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-                Defense{" "}
-                <span className="text-sm text-neutral-500">
-                  ({INNINGS} innings)
-                </span>
-              </h2>
-              <button
-                onClick={autoDraft}
-                className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500"
-              >
-                Auto-draft from depth chart
-              </button>
-            </div>
-            <p className="mt-0.5 text-xs text-neutral-500">
-              Drafts a fair rotation, then leans extra innings toward the
-              strongest players. Adjust any cell below.
-            </p>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[620px] border-collapse text-sm">
-                <thead>
-                  <tr className="text-neutral-400">
-                    <th className="px-2 py-1 text-left font-display tracking-wider">
-                      Pos
-                    </th>
-                    {Array.from({ length: INNINGS }, (_, i) => (
-                      <th
-                        key={i}
-                        className="px-2 py-1 text-left font-display tracking-wider"
-                      >
-                        Inn {i + 1}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {POSITIONS.map((pos) => (
-                    <tr key={pos} className="border-t border-neutral-800">
-                      <th className="px-2 py-1 text-left font-display text-lg tracking-wider text-red-500">
-                        {pos}
-                      </th>
-                      {Array.from({ length: INNINGS }, (_, inning) => {
-                        const current = plan.defense[inning]?.[pos] ?? "";
-                        const used = new Set(
-                          Object.entries(plan.defense[inning] ?? {})
-                            .filter(([k]) => k !== pos)
-                            .map(([, v]) => v),
-                        );
-                        const options = players.filter(
-                          (p) => p.id === current || !used.has(p.id),
-                        );
-                        return (
-                          <td key={inning} className="px-1 py-1">
-                            <select
-                              value={current}
-                              onChange={(e) =>
-                                setCell(inning, pos, e.target.value)
-                              }
-                              className="w-full rounded border border-neutral-700 bg-neutral-900 px-1 py-1 text-sm outline-none focus:border-red-600"
-                            >
-                              <option value="">—</option>
-                              {options.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {jerseyTag(p)} {p.firstName}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-            <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-              Offense
-            </h2>
-            <ListEditor
-              title="Batting lineup"
-              hint="full game · ~2 at-bats"
-              players={players}
-              byId={byId}
-              ids={plan.order}
-              exclude={battingTaken}
-              addLabel="Add batter…"
-              onChange={(order) => update({ ...plan, order })}
-            />
-            <ListEditor
-              title="Subs"
-              hint="off the bench · ~1 at-bat"
-              players={players}
-              byId={byId}
-              ids={plan.subs}
-              exclude={battingTaken}
-              addLabel="Add sub…"
-              onChange={(subs) => update({ ...plan, subs })}
-            />
-          </div>
-
-          <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-                Playing time
-              </h2>
-              <p className="text-sm">
-                <span
-                  className={
-                    okCount === stats.length
-                      ? "text-emerald-400"
-                      : "text-red-400"
-                  }
-                >
-                  {okCount}/{stats.length} meet the minimum
-                </span>
-              </p>
-            </div>
-            <p className="mt-0.5 text-xs text-neutral-500">
-              Target: 2 field innings + 1 at-bat, or 2 at-bats + 1 field inning.
-            </p>
-            <ul className="mt-3 divide-y divide-neutral-800">
-              {stats.map(({ p, field, atBats, ok }) => (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between gap-3 py-2 text-sm"
-                >
-                  <span className="min-w-0 truncate">
-                    <PlayerName p={p} />
-                  </span>
-                  <span className="flex shrink-0 items-center gap-4">
-                    <span className="text-neutral-400">
-                      <span className="text-neutral-100">{field}</span> field
-                    </span>
-                    <span className="text-neutral-400">
-                      <span className="text-neutral-100">{atBats}</span> AB
-                    </span>
-                    <span
-                      className={
-                        "w-16 text-right font-display text-xs tracking-wider " +
-                        (ok ? "text-emerald-400" : "text-red-400")
-                      }
-                    >
-                      {ok ? "OK" : "Short"}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>
+        <PlanEditor
+          players={players}
+          byId={byId}
+          draftDepth={depth}
+          draftLabel="Auto-draft from depth chart"
+          plan={plan}
+          onChange={(next) => onChange({ ...gameplans, [week]: next })}
+        />
       )}
     </section>
   );
