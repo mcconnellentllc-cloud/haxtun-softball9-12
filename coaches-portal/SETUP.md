@@ -197,11 +197,16 @@ app/api/state/gameplans  PUT full gameplans JSON (the team plan, per game).
 // squads  — the A team / B team rosters
 { "A": ["recXXX"], "B": ["recYYY"] }
 
-// gameplans  — game date -> per-squad plan (proposals share this per-coach)
+// gameplans  — game date -> per-squad plan (proposals share this per-coach).
+// defense/batting are each a 5-element array (one per inning); defense maps
+// position -> player, batting maps batting slot ("1".."12") -> player.
 {
   "2026-05-26": {
-    "A": { "defense": [ { "P": "recXXX" } ], "order": ["recXXX"], "subs": [] },
-    "B": { "defense": [], "order": [], "subs": [] }
+    "A": {
+      "defense": [ { "P": "recXXX" } ],
+      "batting": [ { "1": "recXXX", "2": "recYYY" } ]
+    },
+    "B": { "defense": [], "batting": [] }
   }
 }
 ```
