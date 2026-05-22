@@ -116,7 +116,6 @@ export async function updatePlayer(
 export interface PortalState {
   depth_chart: Record<string, unknown>;
   coach_depth: Record<string, unknown>;
-  squads: Record<string, unknown>;
   proposals: Record<string, unknown>;
   gameplans: Record<string, unknown>;
   notes: Record<string, unknown>;
@@ -125,7 +124,6 @@ export interface PortalState {
 const STATE_KEYS = [
   "depth_chart",
   "coach_depth",
-  "squads",
   "proposals",
   "gameplans",
   "notes",
@@ -153,7 +151,6 @@ export async function getState(): Promise<PortalState> {
   return {
     depth_chart: safeParse(map["depth_chart"]),
     coach_depth: safeParse(map["coach_depth"]),
-    squads: safeParse(map["squads"]),
     proposals: safeParse(map["proposals"]),
     gameplans: safeParse(map["gameplans"]),
     notes: safeParse(map["notes"]),

@@ -18,12 +18,6 @@ type DepthChart = Record<string, string[]>;
 // coach name -> that coach's overall (persistent) depth chart
 type CoachDepths = Record<string, DepthChart>;
 
-// The two squads. A/B each hold the player ids carried on that team.
-type Squads = {
-  A: string[];
-  B: string[];
-};
-
 // A defensive assignment for each inning: position -> player id.
 type Defense = Record<string, string>[];
 
@@ -104,14 +98,6 @@ function normalizeDepth(raw: unknown): DepthChart {
 
 function asIdList(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-}
-
-function normalizeSquads(raw: unknown): Squads {
-  const src = (raw && typeof raw === "object" ? raw : {}) as Record<
-    string,
-    unknown
-  >;
-  return { A: asIdList(src.A), B: asIdList(src.B) };
 }
 
 function normalizeCoachDepths(raw: unknown): CoachDepths {
@@ -259,7 +245,6 @@ export default function Home() {
   const [coachDepths, setCoachDepths] = useState<CoachDepths>(() =>
     normalizeCoachDepths({}),
   );
-  const [squads, setSquads] = useState<Squads>({ A: [], B: [] });
   const [proposals, setProposals] = useState<Proposals>(() =>
     normalizeProposals({}),
   );
@@ -297,7 +282,6 @@ export default function Home() {
         setPlayers(Array.isArray(pData.players) ? pData.players : []);
         setDepth(normalizeDepth(sData.depth_chart));
         setCoachDepths(normalizeCoachDepths(sData.coach_depth));
-        setSquads(normalizeSquads(sData.squads));
         setProposals(normalizeProposals(sData.proposals));
         setGameplans(normalizeGamePlans(sData.gameplans));
         setNotes(normalizeNotes(sData.notes));
@@ -356,21 +340,6 @@ export default function Home() {
       }
     },
     [coachDepths, coach],
-  );
-
-  // Persist squad rosters; roll back on failure.
-  const saveSquads = useCallback(
-    async (next: Squads) => {
-      const prev = squads;
-      setSquads(next);
-      try {
-        await putState("/api/state/squads", next, coach);
-      } catch (err) {
-        setSquads(prev);
-        setError(err instanceof Error ? err.message : "Save failed");
-      }
-    },
-    [squads, coach],
   );
 
   // Persist coach proposals; roll back on failure.
@@ -458,12 +427,7 @@ export default function Home() {
         ) : tab === "roster" ? (
           <RosterPanel players={players} />
         ) : tab === "teams" ? (
-          <SquadPanel
-            players={players}
-            byId={byId}
-            squads={squads}
-            onChange={saveSquads}
-          />
+          <TeamsPanel players={players} />
         ) : tab === "depth" ? (
           <DepthTab
             players={players}
@@ -484,7 +448,6 @@ export default function Home() {
             coach={coach}
             depth={depth}
             coachDepths={coachDepths}
-            squads={squads}
             proposals={proposals}
             gameplans={gameplans}
             notes={notes}
@@ -497,7 +460,6 @@ export default function Home() {
             players={players}
             byId={byId}
             depth={depth}
-            squads={squads}
             gameplans={gameplans}
             proposals={proposals}
             coach={coach}
@@ -943,107 +905,39 @@ function DepthCompare({
 
 /* ----------------------------- Teams ----------------------------- */
 
-// Split the roster into an A team and a B team. A player belongs to at most one
-// squad; assigning them to one removes them from the other.
-function SquadPanel({
-  players,
-  byId,
-  squads,
-  onChange,
-}: {
-  players: Player[];
-  byId: Map<string, Player>;
-  squads: Squads;
-  onChange: (next: Squads) => void;
-}) {
+// Reference list only. Every active player is available to BOTH the A and B
+// lineups for every game — there is no squad split. Who's active is managed on
+// the Roster tab; A/B differ only in their per-game lineups, defense, and subs.
+function TeamsPanel({ players }: { players: Player[] }) {
   if (players.length === 0) return <EmptyRoster what="teams" />;
-
-  const onEither = new Set([...squads.A, ...squads.B]);
-  const unassigned = players.filter((p) => !onEither.has(p.id));
-
-  const assign = (team: Side, id: string) => {
-    const other: Side = team === "A" ? "B" : "A";
-    onChange({
-      ...squads,
-      [team]: [...squads[team].filter((x) => x !== id), id],
-      [other]: squads[other].filter((x) => x !== id),
-    });
-  };
-  const removeFrom = (team: Side, id: string) =>
-    onChange({ ...squads, [team]: squads[team].filter((x) => x !== id) });
 
   return (
     <section className="space-y-4">
       <p className="text-sm text-neutral-400">
-        Sort every girl onto the A team or the B team. These rosters drive who
-        you can pick in each game&rsquo;s lineup and outfield rotation.
+        Every active player is on both the <span className="text-neutral-200">A</span>{" "}
+        and <span className="text-neutral-200">B</span> lineups for every game —
+        there&rsquo;s no roster split. A and B differ only in the lineup, defense
+        rotation, and subs you build per game on the{" "}
+        <span className="text-neutral-200">Propose</span> and{" "}
+        <span className="text-neutral-200">Game Plan</span> tabs. To change who&rsquo;s
+        active, use the <span className="text-neutral-200">Roster</span> tab.
       </p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {(["A", "B"] as const).map((team) => {
-          const list = squads[team];
-          const other: Side = team === "A" ? "B" : "A";
-          return (
-            <div
-              key={team}
-              className="rounded border border-neutral-800 bg-neutral-900 p-3"
+      <div className="rounded border border-neutral-800 bg-neutral-900 p-3">
+        <h3 className="font-display text-2xl tracking-wider text-neutral-100">
+          Active for A/B planning{" "}
+          <span className="text-base text-neutral-500">({players.length})</span>
+        </h3>
+        <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+          {players.map((p) => (
+            <li
+              key={p.id}
+              className="rounded bg-black/40 px-2 py-1 text-sm"
             >
-              <h3 className="font-display text-2xl tracking-wider text-neutral-100">
-                <span className="text-red-500">{team}</span> Team{" "}
-                <span className="text-base text-neutral-500">
-                  ({list.length})
-                </span>
-              </h3>
-              <ul className="mt-2 space-y-1">
-                {list.length === 0 && (
-                  <li className="text-xs text-neutral-600">No players yet</li>
-                )}
-                {list.map((id) => (
-                  <li
-                    key={id}
-                    className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
-                  >
-                    <span className="truncate">
-                      <PlayerName p={byId.get(id)} />
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1">
-                      <button
-                        onClick={() => assign(other, id)}
-                        title={`Move to ${other} team`}
-                        className="rounded px-1.5 text-xs tracking-wider text-neutral-400 hover:bg-neutral-700 hover:text-white"
-                      >
-                        → {other}
-                      </button>
-                      <IconBtn
-                        label="Remove"
-                        onClick={() => removeFrom(team, id)}
-                        danger
-                      >
-                        ×
-                      </IconBtn>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-2">
-                <AddPlayer
-                  players={players}
-                  exclude={onEither}
-                  onAdd={(id) => assign(team, id)}
-                  label={`Add to ${team} team…`}
-                />
-              </div>
-            </div>
-          );
-        })}
+              <PlayerName p={p} />
+            </li>
+          ))}
+        </ul>
       </div>
-      {unassigned.length > 0 && (
-        <div className="rounded border border-neutral-800 bg-neutral-900 p-3 text-sm text-neutral-400">
-          <span className="text-neutral-300">
-            {unassigned.length} unassigned:
-          </span>{" "}
-          {unassigned.map((p) => `${p.firstName} ${p.lastName}`).join(", ")}
-        </div>
-      )}
     </section>
   );
 }
@@ -1149,7 +1043,6 @@ function ComparePanel({
   coach,
   depth,
   coachDepths,
-  squads,
   proposals,
   gameplans,
   notes,
@@ -1162,7 +1055,6 @@ function ComparePanel({
   coach: string | null;
   depth: DepthChart;
   coachDepths: CoachDepths;
-  squads: Squads;
   proposals: Proposals;
   gameplans: GamePlans;
   notes: Notes;
@@ -1174,9 +1066,6 @@ function ComparePanel({
   const [side, setSide] = useState<Side>("A");
 
   if (players.length === 0) return <EmptyRoster what="comparison" />;
-
-  // Only the chosen squad's players can be slotted into this game's plan.
-  const sidePlayers = players.filter((p) => squads[side].includes(p.id));
 
   const weekProps: WeekProposals = proposals[week] ?? {};
   // Each coach's plan for the selected squad.
@@ -1205,12 +1094,7 @@ function ComparePanel({
         onSave={(text) => onSaveNote(week, text)}
       />
 
-      {sidePlayers.length === 0 ? (
-        <div className="rounded border border-neutral-800 bg-neutral-900 p-6 text-neutral-400">
-          No players on the {side} team yet. Assign them on the{" "}
-          <span className="text-neutral-200">Teams</span> tab first.
-        </div>
-      ) : coach ? (
+      {coach ? (
         <div className="space-y-5">
           <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
             <h2 className="font-display text-2xl tracking-wider text-neutral-100">
@@ -1223,7 +1107,7 @@ function ComparePanel({
             </p>
           </div>
           <PlanEditor
-            players={sidePlayers}
+            players={players}
             byId={byId}
             draftDepth={myDepth}
             draftLabel="Draft from my depth chart"
@@ -1250,12 +1134,8 @@ function ComparePanel({
         </div>
       )}
 
-      {sidePlayers.length > 0 && (
-        <>
-          <DefenseCompare byId={byId} side={side} plans={sideProps} />
-          <BattingCompare byId={byId} side={side} plans={sideProps} />
-        </>
-      )}
+      <DefenseCompare byId={byId} side={side} plans={sideProps} />
+      <BattingCompare byId={byId} side={side} plans={sideProps} />
     </section>
   );
 }
@@ -2338,7 +2218,6 @@ function GamePlanPanel({
   players,
   byId,
   depth,
-  squads,
   gameplans,
   proposals,
   coach,
@@ -2349,7 +2228,6 @@ function GamePlanPanel({
   players: Player[];
   byId: Map<string, Player>;
   depth: DepthChart;
-  squads: Squads;
   gameplans: GamePlans;
   proposals: Proposals;
   coach: string | null;
@@ -2362,7 +2240,6 @@ function GamePlanPanel({
 
   if (players.length === 0) return <EmptyRoster what="game plan" />;
 
-  const sidePlayers = players.filter((p) => squads[side].includes(p.id));
   const ab: GamePlanAB = gameplans[week] ?? emptyGamePlanAB();
 
   return (
@@ -2377,28 +2254,21 @@ function GamePlanPanel({
         onSave={(text) => onSaveNote(week, text)}
       />
 
-      {sidePlayers.length === 0 ? (
-        <div className="rounded border border-neutral-800 bg-neutral-900 p-6 text-neutral-400">
-          No players on the {side} team yet. Assign them on the{" "}
-          <span className="text-neutral-200">Teams</span> tab first.
-        </div>
-      ) : (
-        <PlanEditor
-          players={sidePlayers}
-          byId={byId}
-          draftDepth={depth}
-          draftLabel="Auto-draft from depth chart"
-          plan={ab[side]}
-          week={week}
-          side={side}
-          coach={coach}
-          proposals={proposals}
-          gameplans={gameplans}
-          onChange={(next) =>
-            onChange({ ...gameplans, [week]: { ...ab, [side]: next } })
-          }
-        />
-      )}
+      <PlanEditor
+        players={players}
+        byId={byId}
+        draftDepth={depth}
+        draftLabel="Auto-draft from depth chart"
+        plan={ab[side]}
+        week={week}
+        side={side}
+        coach={coach}
+        proposals={proposals}
+        gameplans={gameplans}
+        onChange={(next) =>
+          onChange({ ...gameplans, [week]: { ...ab, [side]: next } })
+        }
+      />
     </section>
   );
 }
