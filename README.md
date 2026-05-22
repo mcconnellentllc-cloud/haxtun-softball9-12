@@ -2,8 +2,7 @@
 
 A small Jekyll site for the Haxtun Bulldogs 9-12 girls softball team:
 schedule, roster, league rules, NFHS reference, practices, standings,
-announcements, photo gallery, and a one-tap "Add Schedule to Calendar"
-download.
+announcements, and a one-tap "Add Schedule to Calendar" download.
 
 **Live site:** https://mcconnellentllc-cloud.github.io/haxtun-softball9-12/
 
@@ -34,7 +33,6 @@ photos, no contact info.
 | Roster | `_data/roster.yml` |
 | Practice plan | `practices.html` |
 | Announcements | `_posts/YYYY-MM-DD-slug.md` |
-| Photos | drop in `assets/img/gallery/`, add markup to `gallery.html` |
 | League rules wording | `league-rules.html` |
 | NFHS summary | `nfhs-rules.html` |
 | Coaches list | `_config.yml` (`head_coach`, `assistant_coaches`) |
@@ -101,8 +99,6 @@ assets/
   calendar/haxtun-bulldogs-2026.ics
   img/icon-192.png
   img/icon-512.png
-  img/gallery/    (empty until media releases on file)
-  img/headshots/  (empty by privacy policy)
 index.html
 schedule.html
 roster.html
@@ -111,7 +107,6 @@ nfhs-rules.html
 practices.html
 standings.html
 news.html
-gallery.html
 404.html
 manifest.json
 service-worker.js

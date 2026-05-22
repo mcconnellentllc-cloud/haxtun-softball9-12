@@ -495,19 +495,6 @@ h3 { font-size: 1.4rem; margin-top: 1.75rem; }
 }
 .post__back { margin-top: 2.5rem; }
 
-/* ====================== Gallery ====================== */
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: .5rem;
-  margin: 1.5rem 0;
-}
-.gallery-grid img {
-  aspect-ratio: 4/3;
-  object-fit: cover;
-  border-radius: 4px;
-}
-
 /* ====================== Forms ====================== */
 .form { max-width: 560px; margin-top: 1.5rem; }
 .form label {
