@@ -72,9 +72,11 @@ function meetsMinimum(field: number, atBats: number): boolean {
 
 const COACH_KEY = "bulldogs-coach";
 
-// Quick link to the team's stats (GameChanger / spreadsheet / etc.). Set via
-// NEXT_PUBLIC_STATS_URL; the link is hidden until a URL is configured.
-const STATS_URL = process.env.NEXT_PUBLIC_STATS_URL ?? "";
+// Quick link to the team's stats (GameChanger). Override with
+// NEXT_PUBLIC_STATS_URL if it ever moves.
+const STATS_URL =
+  process.env.NEXT_PUBLIC_STATS_URL ??
+  "https://web.gc.com/teams/kbN4LzDekbO6/2026-summer-haxtun-softball---12u";
 
 /* ---------------------------- Helpers ---------------------------- */
 
