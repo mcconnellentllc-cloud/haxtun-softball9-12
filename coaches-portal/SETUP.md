@@ -219,6 +219,49 @@ changes.
 
 ---
 
+## Stats data (`_data/stats.yml`)
+
+The portal's **Stats** tab reads the same `_data/stats.yml` that the public
+site uses, fetched at runtime from the public repo's raw GitHub URL and cached
+~10 min (`app/api/stats/route.ts`, override the source with `STATS_YML_URL`).
+It ranks each table by a composite score (every stat normalized 0–1 against the
+roster max, then averaged).
+
+The file already has `batting:` and `pitching:` lists. To make the **Fielding**
+table populate, add a `fielding:` list using the **same field-name style** as
+the existing sections (`num`, `name`, lowercase stat keys; rate stats quoted as
+strings so they display as `.938` not `0.938`). No code change is needed — the
+table fills in automatically once the YAML is added.
+
+### Fielding schema — paste from the GameChanger fielding export
+
+```yaml
+fielding:
+  - { num: 1,  name: "Kyla W.",    g: 5, po: 12, a: 3, e: 1, fpct: ".938" }
+  - { num: 22, name: "Tyndle M.",  g: 5, po: 20, a: 8, e: 0, fpct: "1.000" }
+  # ...one row per player
+```
+
+Field names (match GameChanger's columns):
+
+| Key | Meaning | Notes |
+|---|---|---|
+| `num` | Jersey number | integer; same as batting/pitching |
+| `name` | First name + last initial | e.g. `"Kyla W."`; leave `""` for the name-withheld player (#23) |
+| `g` | Games (fielding) | integer; a player with `g: 0` sorts to the bottom |
+| `po` | Putouts | integer |
+| `a` | Assists | integer |
+| `e` | Errors | integer |
+| `fpct` | Fielding percentage | quoted string, e.g. `".938"` or `"1.000"` |
+
+Optional columns some exports include — capture them if present, the portal just
+ignores them: `tc` (total chances), `dp` (double plays).
+
+Composite = average of normalized **FPCT, PO, A, and 1/(E+1)** (so fewer errors
+score higher).
+
+---
+
 ## Concurrency
 State blobs are last-write-wins, which is fine for 3 coaches. To harden,
 send `If-Match` with the prior `Updated` timestamp and reject on mismatch.

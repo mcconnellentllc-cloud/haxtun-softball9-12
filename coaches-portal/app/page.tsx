@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { SCHEDULE, gameLabel, defaultGameDate } from "@/lib/schedule";
+import { SCHEDULE, gameLabel, defaultGameDate, type Game } from "@/lib/schedule";
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -485,6 +485,7 @@ export default function Home() {
             coachDepths={coachDepths}
             squads={squads}
             proposals={proposals}
+            gameplans={gameplans}
             notes={notes}
             onChooseCoach={chooseCoach}
             onChange={saveProposals}
@@ -497,6 +498,8 @@ export default function Home() {
             depth={depth}
             squads={squads}
             gameplans={gameplans}
+            proposals={proposals}
+            coach={coach}
             notes={notes}
             onChange={saveGameplans}
             onSaveNote={saveNote}
@@ -1147,6 +1150,7 @@ function ComparePanel({
   coachDepths,
   squads,
   proposals,
+  gameplans,
   notes,
   onChooseCoach,
   onChange,
@@ -1159,6 +1163,7 @@ function ComparePanel({
   coachDepths: CoachDepths;
   squads: Squads;
   proposals: Proposals;
+  gameplans: GamePlans;
   notes: Notes;
   onChooseCoach: (name: string) => void;
   onChange: (next: Proposals) => void;
@@ -1222,6 +1227,11 @@ function ComparePanel({
             draftDepth={myDepth}
             draftLabel="Draft from my depth chart"
             plan={myAB[side]}
+            week={week}
+            side={side}
+            coach={coach}
+            proposals={proposals}
+            gameplans={gameplans}
             onChange={(mine) =>
               onChange({
                 ...proposals,
@@ -1367,6 +1377,232 @@ function NotesCard({
 
 // Editor for a defense + lineup + subs. Shared by the per-coach proposal and
 // the team game plan, since they're the same shape.
+// Small abbreviation key shown under a chart/table so the shorthand is clear.
+function Legend({ items }: { items: [string, string][] }) {
+  return (
+    <p className="mt-2 text-xs text-neutral-500">
+      {items.map(([k, v], i) => (
+        <span key={k}>
+          {i > 0 ? " · " : ""}
+          <span className="text-neutral-300">{k}</span> {v}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+/* ----------------- Import from a previous game ------------------ */
+
+type ImportField = "defense" | "batting";
+type ImportSource = { plan: GamePlan; label: string };
+
+// Prior scheduled games (before `week`), most recent first.
+function priorGames(week: string): Game[] {
+  return SCHEDULE.filter((g) => g.date < week).sort((a, b) =>
+    b.date.localeCompare(a.date),
+  );
+}
+
+// Does this plan have content in the requested grid?
+function hasField(p: GamePlan | undefined, field: ImportField): boolean {
+  if (!p) return false;
+  const grid = field === "defense" ? p.defense : p.batting;
+  return grid.some((inn) => Object.keys(inn).length > 0);
+}
+
+function cloneInnings(
+  grid: Record<string, string>[],
+): Record<string, string>[] {
+  return grid.map((inn) => ({ ...inn }));
+}
+
+// Most recent prior finalized team plan with the requested grid for `side`.
+function lastFinalSource(
+  week: string,
+  side: Side,
+  field: ImportField,
+  gameplans: GamePlans,
+): ImportSource | null {
+  for (const g of priorGames(week)) {
+    const plan = gameplans[g.date]?.[side];
+    if (hasField(plan, field)) return { plan: plan!, label: gameLabel(g) };
+  }
+  return null;
+}
+
+// Most recent prior proposal by `coach` with the requested grid for `side`.
+function lastMineSource(
+  week: string,
+  side: Side,
+  field: ImportField,
+  coach: string | null,
+  proposals: Proposals,
+): ImportSource | null {
+  if (!coach) return null;
+  for (const g of priorGames(week)) {
+    const plan = proposals[g.date]?.[coach]?.[side];
+    if (hasField(plan, field)) return { plan: plan!, label: gameLabel(g) };
+  }
+  return null;
+}
+
+function importItemCls(enabled: boolean): string {
+  return (
+    "block w-full rounded px-2 py-1.5 text-left tracking-wider transition-colors " +
+    (enabled
+      ? "text-neutral-200 hover:bg-neutral-800"
+      : "cursor-not-allowed text-neutral-600")
+  );
+}
+function importChipCls(enabled: boolean): string {
+  return (
+    "rounded px-2 py-0.5 text-xs tracking-wider transition-colors " +
+    (enabled
+      ? "border border-neutral-700 bg-black/40 text-neutral-200 hover:border-red-600"
+      : "cursor-not-allowed border border-neutral-800 text-neutral-600")
+  );
+}
+
+// "Import from previous game" control. Pulls one grid (defense OR batting) for
+// the current squad from a prior game's finalized plan or the coach's proposal.
+function ImportControl({
+  field,
+  week,
+  side,
+  coach,
+  proposals,
+  gameplans,
+  onImport,
+}: {
+  field: ImportField;
+  week: string;
+  side: Side;
+  coach: string | null;
+  proposals: Proposals;
+  gameplans: GamePlans;
+  onImport: (source: ImportSource) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [picking, setPicking] = useState(false);
+
+  const priors = priorGames(week);
+  const disabled = priors.length === 0;
+  const lastFinal = lastFinalSource(week, side, field, gameplans);
+  const lastMine = lastMineSource(week, side, field, coach, proposals);
+
+  const choose = (src: ImportSource | null) => {
+    if (!src) return;
+    onImport(src);
+    setOpen(false);
+    setPicking(false);
+  };
+
+  return (
+    <div className="mb-3">
+      <button
+        type="button"
+        disabled={disabled}
+        title={disabled ? "No prior games yet." : undefined}
+        onClick={() => setOpen((o) => !o)}
+        className={
+          "rounded border px-3 py-1.5 text-sm tracking-wider transition-colors " +
+          (disabled
+            ? "cursor-not-allowed border-neutral-800 bg-neutral-900 text-neutral-600"
+            : "border-neutral-700 bg-black/40 text-neutral-200 hover:border-red-600")
+        }
+      >
+        Import from previous game ▾
+      </button>
+
+      {open && !disabled && (
+        <div className="mt-2 rounded border border-neutral-700 bg-neutral-950 p-2 text-sm">
+          <button
+            type="button"
+            disabled={!lastFinal}
+            onClick={() => choose(lastFinal)}
+            className={importItemCls(!!lastFinal)}
+          >
+            Last finalized Game Plan
+            <span className="block text-xs text-neutral-500">
+              {lastFinal ? lastFinal.label : "none yet"}
+            </span>
+          </button>
+          <button
+            type="button"
+            disabled={!lastMine}
+            onClick={() => choose(lastMine)}
+            className={importItemCls(!!lastMine)}
+          >
+            My last proposal
+            <span className="block text-xs text-neutral-500">
+              {coach
+                ? lastMine
+                  ? lastMine.label
+                  : "none yet"
+                : "pick your name first"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPicking((p) => !p)}
+            className={importItemCls(true)}
+          >
+            Pick a specific game…
+          </button>
+
+          {picking && (
+            <div className="mt-1 max-h-60 space-y-1 overflow-y-auto border-t border-neutral-800 pt-1">
+              {priors.map((g) => {
+                const final = gameplans[g.date]?.[side];
+                const mine = coach
+                  ? proposals[g.date]?.[coach]?.[side]
+                  : undefined;
+                const finalOk = hasField(final, field);
+                const mineOk = hasField(mine, field);
+                return (
+                  <div key={g.date} className="rounded bg-black/30 px-2 py-1">
+                    <div className="text-xs text-neutral-300">
+                      {gameLabel(g)}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        disabled={!finalOk}
+                        onClick={() =>
+                          choose(
+                            finalOk
+                              ? { plan: final!, label: gameLabel(g) }
+                              : null,
+                          )
+                        }
+                        className={importChipCls(finalOk)}
+                      >
+                        Finalized
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!mineOk}
+                        onClick={() =>
+                          choose(
+                            mineOk ? { plan: mine!, label: gameLabel(g) } : null,
+                          )
+                        }
+                        className={importChipCls(mineOk)}
+                      >
+                        My proposal
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlanEditor({
   players,
   byId,
@@ -1374,6 +1610,11 @@ function PlanEditor({
   draftLabel,
   plan,
   onChange,
+  week,
+  side,
+  coach,
+  proposals,
+  gameplans,
 }: {
   players: Player[];
   byId: Map<string, Player>;
@@ -1381,7 +1622,29 @@ function PlanEditor({
   draftLabel: string;
   plan: GamePlan;
   onChange: (next: GamePlan) => void;
+  week: string;
+  side: Side;
+  coach: string | null;
+  proposals: Proposals;
+  gameplans: GamePlans;
 }) {
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const importField = (field: ImportField, src: ImportSource) => {
+    if (field === "defense") {
+      onChange({ ...plan, defense: cloneInnings(src.plan.defense) });
+      setToast(`Defense replaced with ${src.label}`);
+    } else {
+      onChange({ ...plan, batting: cloneInnings(src.plan.batting) });
+      setToast(`Batting replaced with ${src.label}`);
+    }
+  };
+
   const autoDraft = () => {
     const defense = draftDefense(players, draftDepth);
     // Seed the batting grid with a default lineup the first time, so the at-bat
@@ -1395,6 +1658,11 @@ function PlanEditor({
 
   return (
     <>
+      {toast && (
+        <div className="rounded border border-emerald-900 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-300">
+          {toast}
+        </div>
+      )}
       <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-2xl tracking-wider text-neutral-100">
@@ -1412,6 +1680,15 @@ function PlanEditor({
           Drafts a fair rotation, then leans extra innings toward the strongest
           players. Adjust any cell below.
         </p>
+        <ImportControl
+          field="defense"
+          week={week}
+          side={side}
+          coach={coach}
+          proposals={proposals}
+          gameplans={gameplans}
+          onImport={(src) => importField("defense", src)}
+        />
         <DefenseGrid
           players={players}
           defense={plan.defense}
@@ -1431,6 +1708,15 @@ function PlanEditor({
           off the next inning. By default the same lineup bats all game; swap a
           bench player into an inning to plan a sub from that inning on.
         </p>
+        <ImportControl
+          field="batting"
+          week={week}
+          side={side}
+          coach={coach}
+          proposals={proposals}
+          gameplans={gameplans}
+          onImport={(src) => importField("batting", src)}
+        />
         <BattingGrid
           players={players}
           batting={plan.batting}
@@ -1461,6 +1747,7 @@ function DefenseGrid({
   };
 
   return (
+    <>
     <div className="mt-3 overflow-x-auto">
       <table className="w-full min-w-[620px] border-collapse text-sm">
         <thead>
@@ -1516,6 +1803,17 @@ function DefenseGrid({
         </tbody>
       </table>
     </div>
+    <Legend
+      items={[
+        ["P", "pitcher"],
+        ["C", "catcher"],
+        ["1B/2B/3B", "first/second/third base"],
+        ["SS", "shortstop"],
+        ["LF/CF/RF", "left/center/right field"],
+        ["Inn", "inning"],
+      ]}
+    />
+    </>
   );
 }
 
@@ -1624,6 +1922,13 @@ function BattingGrid({
         </table>
       </div>
       <BenchPool bench={bench} />
+      <Legend
+        items={[
+          ["Slot", "batting-order spot"],
+          ["Inn", "inning"],
+          ["amber cell", "a sub enters that inning"],
+        ]}
+      />
     </>
   );
 }
@@ -1733,6 +2038,13 @@ function PlayingTime({
           </li>
         ))}
       </ul>
+      <Legend
+        items={[
+          ["field", "innings on defense"],
+          ["AB", "at-bats"],
+          ["OK / Short", "meets / misses the playing-time minimum"],
+        ]}
+      />
     </div>
   );
 }
@@ -1821,6 +2133,15 @@ function DefenseCompare({
       <p className="mt-0.5 text-xs text-neutral-500">
         Agree/Differs is per position, per inning, across coaches.
       </p>
+      <Legend
+        items={[
+          ["P", "pitcher"],
+          ["C", "catcher"],
+          ["1B/2B/3B", "first/second/third base"],
+          ["SS", "shortstop"],
+          ["LF/CF/RF", "left/center/right field"],
+        ]}
+      />
       {!any ? (
         <p className="mt-2 text-sm text-neutral-400">
           No proposals for this game yet. Enter yours above to start the
@@ -1903,6 +2224,7 @@ function BattingCompare({
       <p className="mt-0.5 text-xs text-neutral-500">
         Agree/Differs is per batting slot, per inning, across coaches.
       </p>
+      <Legend items={[["Slot", "batting-order spot"], ["Inn", "inning"]]} />
       {!any ? (
         <p className="mt-2 text-sm text-neutral-400">
           No proposals for this game yet. Enter yours above to start the
@@ -2017,6 +2339,8 @@ function GamePlanPanel({
   depth,
   squads,
   gameplans,
+  proposals,
+  coach,
   notes,
   onChange,
   onSaveNote,
@@ -2026,6 +2350,8 @@ function GamePlanPanel({
   depth: DepthChart;
   squads: Squads;
   gameplans: GamePlans;
+  proposals: Proposals;
+  coach: string | null;
   notes: Notes;
   onChange: (next: GamePlans) => void;
   onSaveNote: (week: string, text: string) => void;
@@ -2062,6 +2388,11 @@ function GamePlanPanel({
           draftDepth={depth}
           draftLabel="Auto-draft from depth chart"
           plan={ab[side]}
+          week={week}
+          side={side}
+          coach={coach}
+          proposals={proposals}
+          gameplans={gameplans}
           onChange={(next) =>
             onChange({ ...gameplans, [week]: { ...ab, [side]: next } })
           }
@@ -2263,6 +2594,16 @@ function StatsPanel() {
         title="Batting"
         headers={["Rank", "#", "Player", "GP", "AB", "H", "RBI", "BB", "AVG", "OBP", "Score"]}
         empty={batting.length === 0 ? "No batting stats yet. Updated after each game." : null}
+        legend={[
+          ["GP", "games played"],
+          ["AB", "at-bats"],
+          ["H", "hits"],
+          ["RBI", "runs batted in"],
+          ["BB", "base on balls (walks)"],
+          ["AVG", "batting average"],
+          ["OBP", "on-base percentage"],
+          ["Score", "composite ranking (0–1)"],
+        ]}
       >
         {batting.map(({ row, score, active, rank }, idx) => (
           <StatRow key={`${row.num}-${idx}`} active={active} rank={rank} num={row.num} name={row.name} score={active ? score : null}>
@@ -2281,6 +2622,14 @@ function StatsPanel() {
         title="Pitching"
         headers={["Rank", "#", "Player", "GP", "IP", "K", "ERA", "WHIP", "Score"]}
         empty={pitching.length === 0 ? "No pitching stats yet. Updated after each game." : null}
+        legend={[
+          ["GP", "games played"],
+          ["IP", "innings pitched"],
+          ["K", "strikeouts"],
+          ["ERA", "earned run average"],
+          ["WHIP", "walks + hits per inning"],
+          ["Score", "composite ranking (0–1)"],
+        ]}
       >
         {pitching.map(({ row: { p }, score, active, rank }, idx) => (
           <StatRow key={`${p.num}-${idx}`} active={active} rank={rank} num={p.num} name={p.name} score={active ? score : null}>
@@ -2297,6 +2646,14 @@ function StatsPanel() {
         title="Fielding"
         headers={["Rank", "#", "Player", "G", "PO", "A", "E", "FPCT", "Score"]}
         empty={fielding.length === 0 ? "No fielding stats yet. Updated after each game." : null}
+        legend={[
+          ["G", "games"],
+          ["PO", "putouts"],
+          ["A", "assists"],
+          ["E", "errors"],
+          ["FPCT", "fielding percentage"],
+          ["Score", "composite ranking (0–1)"],
+        ]}
       >
         {fielding.map(({ row, score, active, rank }, idx) => (
           <StatRow key={`${row.num}-${idx}`} active={active} rank={rank} num={row.num} name={row.name} score={active ? score : null}>
@@ -2316,11 +2673,13 @@ function StatTable({
   title,
   headers,
   empty,
+  legend,
   children,
 }: {
   title: string;
   headers: string[];
   empty: string | null;
+  legend: [string, string][];
   children: React.ReactNode;
 }) {
   return (
@@ -2331,26 +2690,29 @@ function StatTable({
       {empty ? (
         <p className="mt-2 text-sm text-neutral-400">{empty}</p>
       ) : (
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="text-neutral-400">
-                {headers.map((h, i) => (
-                  <th
-                    key={h}
-                    className={
-                      "px-2 py-1 font-display tracking-wider " +
-                      (i >= 3 ? "text-right" : "text-left")
-                    }
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>{children}</tbody>
-          </table>
-        </div>
+        <>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="text-neutral-400">
+                  {headers.map((h, i) => (
+                    <th
+                      key={h}
+                      className={
+                        "px-2 py-1 font-display tracking-wider " +
+                        (i >= 3 ? "text-right" : "text-left")
+                      }
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>{children}</tbody>
+            </table>
+          </div>
+          <Legend items={legend} />
+        </>
       )}
     </div>
   );
