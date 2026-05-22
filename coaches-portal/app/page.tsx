@@ -33,11 +33,22 @@ type WeekProposals = Record<string, Proposal>;
 // week key (YYYY-MM-DD) -> that week's per-coach proposals
 type Proposals = Record<string, WeekProposals>;
 
+// The team's actual game plan for one week: a defensive assignment for each
+// inning, plus the batting lineup and bench.
+type GamePlan = {
+  defense: Record<string, string>[]; // one entry per inning; position -> player id
+  order: string[]; // batting lineup, full game (~2 at-bats)
+  subs: string[]; // bench, rotate in (~1 at-bat)
+};
+// week key (YYYY-MM-DD) -> that week's plan
+type GamePlans = Record<string, GamePlan>;
+
 /* ---------------------------- Constants -------------------------- */
 
 const POSITIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"] as const;
-const COACHES = ["Mike", "Kyle", "Jordan", "Emily"] as const;
-const TABS = ["roster", "depth", "lineups", "compare"] as const;
+const COACHES = ["Kyle", "Jordan", "Emily"] as const;
+const INNINGS = 5;
+const TABS = ["roster", "depth", "lineups", "compare", "plan"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -45,9 +56,20 @@ const TAB_LABELS: Record<Tab, string> = {
   depth: "Depth Chart",
   lineups: "Lineups",
   compare: "Compare",
+  plan: "Game Plan",
 };
 
+// Playing-time minimum: every girl should get either 2 field innings + 1
+// at-bat, or 2 at-bats + 1 field inning.
+function meetsMinimum(field: number, atBats: number): boolean {
+  return (field >= 2 && atBats >= 1) || (atBats >= 2 && field >= 1);
+}
+
 const COACH_KEY = "bulldogs-coach";
+
+// Quick link to the team's stats (GameChanger / spreadsheet / etc.). Set via
+// NEXT_PUBLIC_STATS_URL; the link is hidden until a URL is configured.
+const STATS_URL = process.env.NEXT_PUBLIC_STATS_URL ?? "";
 
 /* ---------------------------- Helpers ---------------------------- */
 
@@ -111,6 +133,49 @@ function normalizeProposals(raw: unknown): Proposals {
   return out;
 }
 
+function normalizeDefense(raw: unknown): Record<string, string>[] {
+  const arr = Array.isArray(raw) ? raw : [];
+  const out: Record<string, string>[] = [];
+  for (let i = 0; i < INNINGS; i++) {
+    const src = (arr[i] && typeof arr[i] === "object" && !Array.isArray(arr[i])
+      ? arr[i]
+      : {}) as Record<string, unknown>;
+    const inning: Record<string, string> = {};
+    for (const pos of POSITIONS) {
+      const v = src[pos];
+      if (typeof v === "string" && v) inning[pos] = v;
+    }
+    out.push(inning);
+  }
+  return out;
+}
+
+function normalizeGamePlan(raw: unknown): GamePlan {
+  const p = (raw && typeof raw === "object" ? raw : {}) as Record<
+    string,
+    unknown
+  >;
+  return {
+    defense: normalizeDefense(p.defense),
+    order: asIdList(p.order),
+    subs: asIdList(p.subs),
+  };
+}
+
+function normalizeGamePlans(raw: unknown): GamePlans {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Record<
+    string,
+    unknown
+  >;
+  const out: GamePlans = {};
+  for (const key of Object.keys(src)) {
+    if (src[key] && typeof src[key] === "object") {
+      out[key] = normalizeGamePlan(src[key]);
+    }
+  }
+  return out;
+}
+
 async function putState(path: string, body: unknown, coach: string | null) {
   const res = await fetch(path, {
     method: "PUT",
@@ -135,6 +200,9 @@ export default function Home() {
   const [lineups, setLineups] = useState<Lineups>({ A: [], B: [] });
   const [proposals, setProposals] = useState<Proposals>(() =>
     normalizeProposals({}),
+  );
+  const [gameplans, setGameplans] = useState<GamePlans>(() =>
+    normalizeGamePlans({}),
   );
   const [tab, setTab] = useState<Tab>("roster");
   const [coach, setCoach] = useState<string | null>(null);
@@ -167,6 +235,7 @@ export default function Home() {
         setDepth(normalizeDepth(sData.depth_chart));
         setLineups(normalizeLineups(sData.lineups));
         setProposals(normalizeProposals(sData.proposals));
+        setGameplans(normalizeGamePlans(sData.gameplans));
       } catch (err) {
         if (!cancelled)
           setError(err instanceof Error ? err.message : "Failed to load");
@@ -239,6 +308,21 @@ export default function Home() {
     [proposals, coach],
   );
 
+  // Persist the team game plans; roll back on failure.
+  const saveGameplans = useCallback(
+    async (next: GamePlans) => {
+      const prev = gameplans;
+      setGameplans(next);
+      try {
+        await putState("/api/state/gameplans", next, coach);
+      } catch (err) {
+        setGameplans(prev);
+        setError(err instanceof Error ? err.message : "Save failed");
+      }
+    },
+    [gameplans, coach],
+  );
+
   return (
     <main className="mx-auto max-w-3xl p-5 sm:p-8">
       <Header coach={coach} onChooseCoach={chooseCoach} />
@@ -291,7 +375,7 @@ export default function Home() {
             lineups={lineups}
             onChange={saveLineups}
           />
-        ) : (
+        ) : tab === "compare" ? (
           <ComparePanel
             players={players}
             byId={byId}
@@ -299,6 +383,14 @@ export default function Home() {
             proposals={proposals}
             onChooseCoach={chooseCoach}
             onChange={saveProposals}
+          />
+        ) : (
+          <GamePlanPanel
+            players={players}
+            byId={byId}
+            depth={depth}
+            gameplans={gameplans}
+            onChange={saveGameplans}
           />
         )}
       </div>
@@ -341,6 +433,16 @@ function Header({
             </option>
           ))}
         </select>
+        {STATS_URL && (
+          <a
+            href={STATS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded border border-neutral-700 bg-neutral-900 px-3 py-1.5 font-display text-sm tracking-wider text-neutral-200 hover:border-red-600"
+          >
+            Stats
+          </a>
+        )}
         <a
           href="/api/auth/logout"
           className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider hover:bg-red-500"
@@ -1389,6 +1491,401 @@ function BattingCompare({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/* ---------------------------- Game plan -------------------------- */
+
+function emptyDefense(): Record<string, string>[] {
+  return Array.from({ length: INNINGS }, () => ({}));
+}
+
+function emptyGamePlan(): GamePlan {
+  return { defense: emptyDefense(), order: [], subs: [] };
+}
+
+// Auto-build a fair 5-inning defense from the shared depth chart. Everyone is
+// pushed to the field-inning floor first (so all girls meet the minimum), then
+// the extra innings go to the strongest players (those highest on each
+// position's depth list).
+function draftDefense(players: Player[], depth: DepthChart): Record<string, string>[] {
+  const FLOOR = 2;
+  const ids = new Set(players.map((p) => p.id));
+  const field = new Map<string, number>(players.map((p) => [p.id, 0]));
+  const rankOf = (pos: string, id: string) => {
+    const i = (depth[pos] ?? []).indexOf(id);
+    return i === -1 ? 1e6 : i;
+  };
+
+  const innings: Record<string, string>[] = [];
+  for (let inning = 0; inning < INNINGS; inning++) {
+    const used = new Set<string>();
+    const cell: Record<string, string> = {};
+    // Fill the scarcest positions (fewest depth options) first.
+    const ordered = [...POSITIONS].sort(
+      (a, b) => (depth[a]?.length ?? 0) - (depth[b]?.length ?? 0),
+    );
+    for (const pos of ordered) {
+      const fromDepth = (depth[pos] ?? []).filter(
+        (id) => ids.has(id) && !used.has(id),
+      );
+      const pool = fromDepth.length
+        ? fromDepth
+        : players.map((p) => p.id).filter((id) => !used.has(id));
+      if (pool.length === 0) continue;
+      const pick = [...pool].sort((a, b) => {
+        const belowA = (field.get(a) ?? 0) < FLOOR ? 0 : 1;
+        const belowB = (field.get(b) ?? 0) < FLOOR ? 0 : 1;
+        if (belowA !== belowB) return belowA - belowB; // below floor first
+        if (belowA === 0) {
+          const c = (field.get(a) ?? 0) - (field.get(b) ?? 0);
+          if (c !== 0) return c; // spread fairly toward the floor
+          return rankOf(pos, a) - rankOf(pos, b); // tiebreak: stronger first
+        }
+        return rankOf(pos, a) - rankOf(pos, b); // extra innings to the strongest
+      })[0];
+      cell[pos] = pick;
+      used.add(pick);
+      field.set(pick, (field.get(pick) ?? 0) + 1);
+    }
+    innings.push(cell);
+  }
+  return innings;
+}
+
+function GamePlanPanel({
+  players,
+  byId,
+  depth,
+  gameplans,
+  onChange,
+}: {
+  players: Player[];
+  byId: Map<string, Player>;
+  depth: DepthChart;
+  gameplans: GamePlans;
+  onChange: (next: GamePlans) => void;
+}) {
+  const weeks = Object.keys(gameplans).sort().reverse();
+  const [week, setWeek] = useState<string>("");
+
+  useEffect(() => {
+    if (weeks.length === 0) {
+      if (week) setWeek("");
+    } else if (!week || !weeks.includes(week)) {
+      setWeek(weeks[0]);
+    }
+  }, [gameplans]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (players.length === 0) return <EmptyRoster what="game plan" />;
+
+  const addWeek = (key: string, copyFrom?: string) => {
+    if (!key) return;
+    const base = copyFrom ? gameplans[copyFrom] : undefined;
+    onChange({
+      ...gameplans,
+      [key]: gameplans[key] ?? base ?? emptyGamePlan(),
+    });
+    setWeek(key);
+  };
+
+  const plan: GamePlan = (week ? gameplans[week] : undefined) ?? emptyGamePlan();
+  const update = (next: GamePlan) => onChange({ ...gameplans, [week]: next });
+
+  const setCell = (inning: number, pos: string, id: string) => {
+    const defense = plan.defense.map((d, i) => (i === inning ? { ...d } : d));
+    if (id) defense[inning][pos] = id;
+    else delete defense[inning][pos];
+    update({ ...plan, defense });
+  };
+
+  const autoDraft = () => {
+    const defense = draftDefense(players, depth);
+    // Default everyone into the batting order if no lineup exists yet, so the
+    // at-bat minimum is covered out of the gate.
+    const order =
+      plan.order.length === 0 && plan.subs.length === 0
+        ? players.map((p) => p.id)
+        : plan.order;
+    update({ ...plan, defense, order });
+  };
+
+  const battingTaken = new Set([...plan.order, ...plan.subs]);
+
+  // Playing-time tally per girl.
+  const stats = players
+    .map((p) => {
+      const field = plan.defense.reduce(
+        (n, inn) => n + (Object.values(inn).includes(p.id) ? 1 : 0),
+        0,
+      );
+      const atBats = plan.order.includes(p.id)
+        ? 2
+        : plan.subs.includes(p.id)
+          ? 1
+          : 0;
+      return { p, field, atBats, ok: meetsMinimum(field, atBats) };
+    })
+    .sort(
+      (a, b) =>
+        Number(a.ok) - Number(b.ok) ||
+        b.field + b.atBats - (a.field + a.atBats) ||
+        (a.p.jersey ?? 9999) - (b.p.jersey ?? 9999),
+    );
+  const okCount = stats.filter((s) => s.ok).length;
+
+  return (
+    <section className="space-y-5">
+      <WeekBar
+        weeks={weeks}
+        week={week}
+        latest={weeks[0]}
+        onSelect={setWeek}
+        onAdd={addWeek}
+      />
+
+      {weeks.length === 0 ? (
+        <div className="rounded border border-neutral-800 bg-neutral-900 p-6 text-neutral-400">
+          No game plans yet. Add a week above to build the defense and lineup.
+        </div>
+      ) : !week ? null : (
+        <>
+          <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+                Defense{" "}
+                <span className="text-sm text-neutral-500">
+                  ({INNINGS} innings)
+                </span>
+              </h2>
+              <button
+                onClick={autoDraft}
+                className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500"
+              >
+                Auto-draft from depth chart
+              </button>
+            </div>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Drafts a fair rotation, then leans extra innings toward the
+              strongest players. Adjust any cell below.
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[620px] border-collapse text-sm">
+                <thead>
+                  <tr className="text-neutral-400">
+                    <th className="px-2 py-1 text-left font-display tracking-wider">
+                      Pos
+                    </th>
+                    {Array.from({ length: INNINGS }, (_, i) => (
+                      <th
+                        key={i}
+                        className="px-2 py-1 text-left font-display tracking-wider"
+                      >
+                        Inn {i + 1}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {POSITIONS.map((pos) => (
+                    <tr key={pos} className="border-t border-neutral-800">
+                      <th className="px-2 py-1 text-left font-display text-lg tracking-wider text-red-500">
+                        {pos}
+                      </th>
+                      {Array.from({ length: INNINGS }, (_, inning) => {
+                        const current = plan.defense[inning]?.[pos] ?? "";
+                        const used = new Set(
+                          Object.entries(plan.defense[inning] ?? {})
+                            .filter(([k]) => k !== pos)
+                            .map(([, v]) => v),
+                        );
+                        const options = players.filter(
+                          (p) => p.id === current || !used.has(p.id),
+                        );
+                        return (
+                          <td key={inning} className="px-1 py-1">
+                            <select
+                              value={current}
+                              onChange={(e) =>
+                                setCell(inning, pos, e.target.value)
+                              }
+                              className="w-full rounded border border-neutral-700 bg-neutral-900 px-1 py-1 text-sm outline-none focus:border-red-600"
+                            >
+                              <option value="">—</option>
+                              {options.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {jerseyTag(p)} {p.firstName}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+            <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+              Offense
+            </h2>
+            <ListEditor
+              title="Batting lineup"
+              hint="full game · ~2 at-bats"
+              players={players}
+              byId={byId}
+              ids={plan.order}
+              exclude={battingTaken}
+              addLabel="Add batter…"
+              onChange={(order) => update({ ...plan, order })}
+            />
+            <ListEditor
+              title="Subs"
+              hint="off the bench · ~1 at-bat"
+              players={players}
+              byId={byId}
+              ids={plan.subs}
+              exclude={battingTaken}
+              addLabel="Add sub…"
+              onChange={(subs) => update({ ...plan, subs })}
+            />
+          </div>
+
+          <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+                Playing time
+              </h2>
+              <p className="text-sm">
+                <span
+                  className={
+                    okCount === stats.length
+                      ? "text-emerald-400"
+                      : "text-red-400"
+                  }
+                >
+                  {okCount}/{stats.length} meet the minimum
+                </span>
+              </p>
+            </div>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Target: 2 field innings + 1 at-bat, or 2 at-bats + 1 field inning.
+            </p>
+            <ul className="mt-3 divide-y divide-neutral-800">
+              {stats.map(({ p, field, atBats, ok }) => (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 py-2 text-sm"
+                >
+                  <span className="min-w-0 truncate">
+                    <PlayerName p={p} />
+                  </span>
+                  <span className="flex shrink-0 items-center gap-4">
+                    <span className="text-neutral-400">
+                      <span className="text-neutral-100">{field}</span> field
+                    </span>
+                    <span className="text-neutral-400">
+                      <span className="text-neutral-100">{atBats}</span> AB
+                    </span>
+                    <span
+                      className={
+                        "w-16 text-right font-display text-xs tracking-wider " +
+                        (ok ? "text-emerald-400" : "text-red-400")
+                      }
+                    >
+                      {ok ? "OK" : "Short"}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+// Reusable ordered add/remove/reorder list of players.
+function ListEditor({
+  title,
+  hint,
+  players,
+  byId,
+  ids,
+  exclude,
+  addLabel,
+  onChange,
+}: {
+  title: string;
+  hint?: string;
+  players: Player[];
+  byId: Map<string, Player>;
+  ids: string[];
+  exclude: Set<string>;
+  addLabel: string;
+  onChange: (next: string[]) => void;
+}) {
+  const add = (id: string) => {
+    if (ids.includes(id)) return;
+    onChange([...ids, id]);
+  };
+  const remove = (id: string) => onChange(ids.filter((x) => x !== id));
+  const move = (idx: number, dir: -1 | 1) => {
+    const list = [...ids];
+    const j = idx + dir;
+    if (j < 0 || j >= list.length) return;
+    [list[idx], list[j]] = [list[j], list[idx]];
+    onChange(list);
+  };
+
+  return (
+    <div className="mt-4">
+      <h3 className="font-display text-lg tracking-wider text-neutral-200">
+        {title}
+        {hint && <span className="text-sm text-neutral-500"> ({hint})</span>}
+      </h3>
+      <ol className="mt-2 space-y-1">
+        {ids.length === 0 && (
+          <li className="text-xs text-neutral-600">No one yet</li>
+        )}
+        {ids.map((id, idx) => (
+          <li
+            key={id}
+            className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
+          >
+            <span className="truncate">
+              <span className="inline-block w-5 text-neutral-500">
+                {idx + 1}.
+              </span>{" "}
+              <PlayerName p={byId.get(id)} />
+            </span>
+            <span className="flex shrink-0 items-center gap-1">
+              <IconBtn label="Up" onClick={() => move(idx, -1)}>
+                ↑
+              </IconBtn>
+              <IconBtn label="Down" onClick={() => move(idx, 1)}>
+                ↓
+              </IconBtn>
+              <IconBtn label="Remove" onClick={() => remove(id)} danger>
+                ×
+              </IconBtn>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-2">
+        <AddPlayer
+          players={players}
+          exclude={exclude}
+          onAdd={add}
+          label={addLabel}
+        />
+      </div>
     </div>
   );
 }
