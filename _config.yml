@@ -36,6 +36,7 @@ nav:
   - { title: "League Rules", url: "/league-rules/" }
   - { title: "NFHS Rules",  url: "/nfhs-rules/" }
   - { title: "Practices",   url: "/practices/" }
+  - { title: "Drills",      url: "/drills/" }
   - { title: "Standings",   url: "/standings/" }
   - { title: "Stats",       url: "/stats/" }
   - { title: "News",        url: "/news/" }

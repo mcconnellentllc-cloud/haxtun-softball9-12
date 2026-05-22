@@ -573,3 +573,140 @@ h3 { font-size: 1.4rem; margin-top: 1.75rem; }
   color: #888;
 }
 .site-footer__legal p { margin: 0; }
+
+/* ====================== Drills ====================== */
+.skill-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: 0 0 2rem;
+  padding: 1rem;
+  background: var(--bone);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.skill-nav__link {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: .05em;
+  color: var(--black);
+  background: #fff;
+  border: 1px solid var(--line);
+  padding: .4rem .9rem;
+  border-radius: 4px;
+}
+.skill-nav__link:hover {
+  border-color: var(--red);
+  color: var(--red);
+  text-decoration: none;
+}
+
+.drill-section { scroll-margin-top: 90px; }
+.drill-section + .drill-section {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.drill-intro { max-width: 66ch; }
+
+.drill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.drill-card {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1.25rem;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+.drill-card--video { background: var(--bone); }
+.drill-card__kind {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: .35rem;
+}
+.drill-card__name {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  letter-spacing: .02em;
+  line-height: 1.1;
+  margin: 0 0 .6rem;
+  color: var(--black);
+}
+.drill-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin: 0 0 .75rem;
+}
+.drill-meta__item {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: .2rem .5rem;
+  color: var(--muted);
+}
+.drill-card--video .drill-meta__item { background: var(--bone); }
+.drill-card__steps { margin: 0; padding-left: 1.15rem; }
+.drill-card__steps li { margin: .3rem 0; }
+.drill-card > p { margin: 0 0 .75rem; }
+
+.video-embed {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  margin: 0 0 .65rem;
+  background: #000;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.video-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.video-link { font-weight: 700; font-size: .9rem; }
+.drill-source {
+  margin: .5rem 0 0;
+  padding-top: .5rem;
+  font-size: .78rem;
+  color: var(--muted);
+}
+
+/* Print: take a drill section to practice */
+@media print {
+  .site-header,
+  .site-nav,
+  .nav-toggle,
+  .site-footer,
+  .skill-nav,
+  .page-header__sub { display: none !important; }
+  .page-header { background: #fff; border: 0; padding: 0 0 1rem; }
+  body { font-size: 12px; color: #000; background: #fff; }
+  a { color: #000; }
+  .main { padding-bottom: 0; }
+  .content { padding-top: 1rem; }
+  .drill-grid { display: block; }
+  .drill-card {
+    background: #fff !important;
+    border: 1px solid #999;
+    margin-bottom: .6rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .video-embed { display: none; }
+  /* keep the printed page usable by showing the video link target */
+  .video-link::after { content: " — " attr(href); font-weight: 400; }
+}
