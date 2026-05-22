@@ -70,17 +70,24 @@ if (seedPath.endsWith("players.example.json")) {
 const players = JSON.parse(readFileSync(seedPath, "utf8"));
 const have = await existingNames();
 
+// Privacy: log first name + last initial only (the public-site convention),
+// never full surnames — even though the dedup key above matches on full name.
+function label(p) {
+  const initial = (p.lastName || "").trim().charAt(0).toUpperCase();
+  return initial ? `${p.firstName} ${initial}.` : p.firstName;
+}
+
 let created = 0;
 let skipped = 0;
 for (const p of players) {
   const k = `${p.firstName}|${p.lastName}`.toLowerCase();
   if (have.has(k)) {
     skipped++;
-    console.log(`skip  ${p.firstName} ${p.lastName} (exists)`);
+    console.log(`skip  ${label(p)} (exists)`);
     continue;
   }
   await createPlayer(p);
   created++;
-  console.log(`add   ${p.firstName} ${p.lastName}`);
+  console.log(`add   ${label(p)}`);
 }
 console.log(`\nDone. ${created} created, ${skipped} skipped.`);
