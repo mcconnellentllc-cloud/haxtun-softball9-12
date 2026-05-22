@@ -26,21 +26,27 @@ type Lineups = {
 // A defensive assignment for each inning: position -> player id.
 type Defense = Record<string, string>[];
 
-// A defense + batting lineup + bench. Used for both a coach's per-game
-// proposal and the team's actual game plan (same shape).
+// A defense + batting lineup + bench.
 type GamePlan = {
   defense: Defense; // one entry per inning
   order: string[]; // batting lineup, full game (~2 at-bats)
   subs: string[]; // bench, rotate in (~1 at-bat)
 };
-// A coach's per-game proposal has the same shape as a game plan.
-type Proposal = GamePlan;
+
+// Each game carries two interchangeable plan options, A and B.
+type Side = "A" | "B";
+type GamePlanAB = Record<Side, GamePlan>;
+
+// A coach's per-game proposal is itself an A/B pair.
+type Proposal = GamePlanAB;
 // coach name -> their proposal, within a single week
 type WeekProposals = Record<string, Proposal>;
 // week key (YYYY-MM-DD) -> that week's per-coach proposals
 type Proposals = Record<string, WeekProposals>;
-// week key (YYYY-MM-DD) -> that week's team plan
-type GamePlans = Record<string, GamePlan>;
+// week key (YYYY-MM-DD) -> that week's team plan (A/B)
+type GamePlans = Record<string, GamePlanAB>;
+// week key (YYYY-MM-DD) -> shared coaches note for that game
+type Notes = Record<string, string>;
 
 /* ---------------------------- Constants -------------------------- */
 
@@ -107,8 +113,16 @@ function normalizeCoachDepths(raw: unknown): CoachDepths {
   return out;
 }
 
+function normalizeGamePlanAB(raw: unknown): GamePlanAB {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Record<
+    string,
+    unknown
+  >;
+  return { A: normalizeGamePlan(src.A), B: normalizeGamePlan(src.B) };
+}
+
 function normalizeProposal(raw: unknown): Proposal {
-  return normalizeGamePlan(raw);
+  return normalizeGamePlanAB(raw);
 }
 
 function normalizeWeek(raw: unknown): WeekProposals {
@@ -170,8 +184,20 @@ function normalizeGamePlans(raw: unknown): GamePlans {
   const out: GamePlans = {};
   for (const key of Object.keys(src)) {
     if (src[key] && typeof src[key] === "object") {
-      out[key] = normalizeGamePlan(src[key]);
+      out[key] = normalizeGamePlanAB(src[key]);
     }
+  }
+  return out;
+}
+
+function normalizeNotes(raw: unknown): Notes {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Record<
+    string,
+    unknown
+  >;
+  const out: Notes = {};
+  for (const key of Object.keys(src)) {
+    if (typeof src[key] === "string") out[key] = src[key] as string;
   }
   return out;
 }
@@ -207,6 +233,7 @@ export default function Home() {
   const [gameplans, setGameplans] = useState<GamePlans>(() =>
     normalizeGamePlans({}),
   );
+  const [notes, setNotes] = useState<Notes>(() => normalizeNotes({}));
   const [tab, setTab] = useState<Tab>("roster");
   const [coach, setCoach] = useState<string | null>(null);
 
@@ -240,6 +267,7 @@ export default function Home() {
         setLineups(normalizeLineups(sData.lineups));
         setProposals(normalizeProposals(sData.proposals));
         setGameplans(normalizeGamePlans(sData.gameplans));
+        setNotes(normalizeNotes(sData.notes));
       } catch (err) {
         if (!cancelled)
           setError(err instanceof Error ? err.message : "Failed to load");
@@ -342,6 +370,22 @@ export default function Home() {
     [gameplans, coach],
   );
 
+  // Persist per-game coaches notes; roll back on failure.
+  const saveNote = useCallback(
+    async (week: string, text: string) => {
+      const prev = notes;
+      const next = { ...notes, [week]: text };
+      setNotes(next);
+      try {
+        await putState("/api/state/notes", next, coach);
+      } catch (err) {
+        setNotes(prev);
+        setError(err instanceof Error ? err.message : "Save failed");
+      }
+    },
+    [notes, coach],
+  );
+
   return (
     <main className="mx-auto max-w-3xl p-5 sm:p-8">
       <Header coach={coach} onChooseCoach={chooseCoach} />
@@ -408,8 +452,10 @@ export default function Home() {
             depth={depth}
             coachDepths={coachDepths}
             proposals={proposals}
+            notes={notes}
             onChooseCoach={chooseCoach}
             onChange={saveProposals}
+            onSaveNote={saveNote}
           />
         ) : (
           <GamePlanPanel
@@ -417,7 +463,9 @@ export default function Home() {
             byId={byId}
             depth={depth}
             gameplans={gameplans}
+            notes={notes}
             onChange={saveGameplans}
+            onSaveNote={saveNote}
           />
         )}
       </div>
@@ -986,6 +1034,10 @@ function emptyGamePlan(): GamePlan {
   return { defense: emptyDefense(), order: [], subs: [] };
 }
 
+function emptyGamePlanAB(): GamePlanAB {
+  return { A: emptyGamePlan(), B: emptyGamePlan() };
+}
+
 // Local date as YYYY-MM-DD (used as the week key).
 function todayKey(): string {
   const d = new Date();
@@ -1055,8 +1107,10 @@ function ComparePanel({
   depth,
   coachDepths,
   proposals,
+  notes,
   onChooseCoach,
   onChange,
+  onSaveNote,
 }: {
   players: Player[];
   byId: Map<string, Player>;
@@ -1064,12 +1118,15 @@ function ComparePanel({
   depth: DepthChart;
   coachDepths: CoachDepths;
   proposals: Proposals;
+  notes: Notes;
   onChooseCoach: (name: string) => void;
   onChange: (next: Proposals) => void;
+  onSaveNote: (week: string, text: string) => void;
 }) {
   // Newest week first.
   const weeks = Object.keys(proposals).sort().reverse();
   const [week, setWeek] = useState<string>("");
+  const [side, setSide] = useState<Side>("A");
 
   // Default to the latest week; recover if the selected week disappears.
   useEffect(() => {
@@ -1090,6 +1147,9 @@ function ComparePanel({
   };
 
   const weekProps: WeekProposals = (week ? proposals[week] : undefined) ?? {};
+  // The selected A/B option for each coach.
+  const sideProps: Record<string, GamePlan> = {};
+  for (const c of COACHES) sideProps[c] = weekProps[c]?.[side] ?? emptyGamePlan();
 
   // A coach drafts from their own overall depth chart, falling back to the
   // shared team chart if they haven't built one.
@@ -1097,6 +1157,8 @@ function ComparePanel({
     coach && POSITIONS.some((pos) => (coachDepths[coach]?.[pos] ?? []).length > 0)
       ? coachDepths[coach]
       : depth;
+
+  const myAB = (coach ? weekProps[coach] : undefined) ?? emptyGamePlanAB();
 
   return (
     <section className="space-y-5">
@@ -1115,11 +1177,22 @@ function ComparePanel({
         </div>
       ) : !week ? null : (
         <>
+          <SideToggle side={side} onSelect={setSide} />
+
+          {week && (
+            <NotesCard
+              key={week}
+              week={week}
+              note={notes[week] ?? ""}
+              onSave={(text) => onSaveNote(week, text)}
+            />
+          )}
+
           {coach ? (
             <div className="space-y-5">
               <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
                 <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-                  Your proposal
+                  Your proposal — {side} team
                 </h2>
                 <p className="mt-1 text-sm text-neutral-400">
                   Entering as <span className="text-neutral-100">{coach}</span>{" "}
@@ -1132,11 +1205,14 @@ function ComparePanel({
                 byId={byId}
                 draftDepth={myDepth}
                 draftLabel="Draft from my depth chart"
-                plan={weekProps[coach] ?? emptyGamePlan()}
+                plan={myAB[side]}
                 onChange={(mine) =>
                   onChange({
                     ...proposals,
-                    [week]: { ...weekProps, [coach]: mine },
+                    [week]: {
+                      ...weekProps,
+                      [coach]: { ...myAB, [side]: mine },
+                    },
                   })
                 }
               />
@@ -1163,11 +1239,77 @@ function ComparePanel({
             </div>
           )}
 
-          <DefenseCompare byId={byId} weekProps={weekProps} />
-          <BattingCompare byId={byId} weekProps={weekProps} />
+          <DefenseCompare byId={byId} side={side} plans={sideProps} />
+          <BattingCompare byId={byId} side={side} plans={sideProps} />
         </>
       )}
     </section>
+  );
+}
+
+// A/B option toggle.
+function SideToggle({
+  side,
+  onSelect,
+}: {
+  side: Side;
+  onSelect: (s: Side) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="font-display text-lg tracking-wider text-neutral-200">
+        Team
+      </span>
+      {(["A", "B"] as const).map((s) => (
+        <button
+          key={s}
+          onClick={() => onSelect(s)}
+          className={
+            "rounded px-4 py-1.5 font-display text-lg tracking-wider transition-colors " +
+            (side === s
+              ? "bg-red-600 text-white"
+              : "border border-neutral-700 bg-black/40 text-neutral-300 hover:border-red-600")
+          }
+        >
+          {s}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Shared per-game coaches note. Saves on blur to avoid a write per keystroke.
+function NotesCard({
+  week,
+  note,
+  onSave,
+}: {
+  week: string;
+  note: string;
+  onSave: (text: string) => void;
+}) {
+  const [draft, setDraft] = useState(note);
+  useEffect(() => setDraft(note), [note, week]);
+
+  return (
+    <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+      <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+        Coaches notes
+      </h2>
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft !== note) onSave(draft);
+        }}
+        rows={3}
+        placeholder="Notes for this game (matchups, reminders, who's out…)"
+        className="mt-2 w-full rounded border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-red-600"
+      />
+      <p className="mt-1 text-xs text-neutral-600">
+        Shared by all coaches · saved when you click away.
+      </p>
+    </div>
   );
 }
 
@@ -1562,17 +1704,19 @@ function CoachRanked({
 
 function DefenseCompare({
   byId,
-  weekProps,
+  side,
+  plans,
 }: {
   byId: Map<string, Player>;
-  weekProps: WeekProposals;
+  side: Side;
+  plans: Record<string, GamePlan>;
 }) {
-  const any = COACHES.some((c) => hasPlan(weekProps[c]));
+  const any = COACHES.some((c) => hasPlan(plans[c]));
   let agree = 0;
   let differ = 0;
   const innings = Array.from({ length: INNINGS }, (_, i) => {
     const cells = POSITIONS.map((pos) => {
-      const picks = COACHES.map((c) => weekProps[c]?.defense?.[i]?.[pos]);
+      const picks = COACHES.map((c) => plans[c]?.defense?.[i]?.[pos]);
       const status = rowStatus(picks);
       if (status === "agree") agree++;
       else if (status === "differ") differ++;
@@ -1585,7 +1729,7 @@ function DefenseCompare({
     <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-          Defense
+          Defense — {side} team
         </h2>
         <p className="text-sm">
           <span className="text-emerald-400">{agree} agree</span>
@@ -1642,24 +1786,26 @@ function DefenseCompare({
 
 function BattingCompare({
   byId,
-  weekProps,
+  side,
+  plans,
 }: {
   byId: Map<string, Player>;
-  weekProps: WeekProposals;
+  side: Side;
+  plans: Record<string, GamePlan>;
 }) {
-  const any = COACHES.some((c) => hasPlan(weekProps[c]));
+  const any = COACHES.some((c) => hasPlan(plans[c]));
   const maxLen = Math.max(
     0,
-    ...COACHES.map((c) => weekProps[c]?.order.length ?? 0),
+    ...COACHES.map((c) => plans[c]?.order.length ?? 0),
   );
   const rows = Array.from({ length: maxLen }, (_, i) => {
-    const picks = COACHES.map((c) => weekProps[c]?.order?.[i]);
+    const picks = COACHES.map((c) => plans[c]?.order?.[i]);
     return { slot: i, picks, status: rowStatus(picks) };
   });
   const agree = rows.filter((r) => r.status === "agree").length;
   const differ = rows.filter((r) => r.status === "differ").length;
 
-  const subLists = COACHES.map((c) => weekProps[c]?.subs ?? []);
+  const subLists = COACHES.map((c) => plans[c]?.subs ?? []);
   const subsStatus = setStatus(subLists);
   const anySubs = subLists.some((l) => l.length > 0);
 
@@ -1667,7 +1813,7 @@ function BattingCompare({
     <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-          Batting order
+          Batting order — {side} team
         </h2>
         <p className="text-sm">
           <span className="text-emerald-400">{agree} agree</span>
@@ -1798,16 +1944,21 @@ function GamePlanPanel({
   byId,
   depth,
   gameplans,
+  notes,
   onChange,
+  onSaveNote,
 }: {
   players: Player[];
   byId: Map<string, Player>;
   depth: DepthChart;
   gameplans: GamePlans;
+  notes: Notes;
   onChange: (next: GamePlans) => void;
+  onSaveNote: (week: string, text: string) => void;
 }) {
   const weeks = Object.keys(gameplans).sort().reverse();
   const [week, setWeek] = useState<string>("");
+  const [side, setSide] = useState<Side>("A");
 
   useEffect(() => {
     if (weeks.length === 0) {
@@ -1824,12 +1975,13 @@ function GamePlanPanel({
     const base = copyFrom ? gameplans[copyFrom] : undefined;
     onChange({
       ...gameplans,
-      [key]: gameplans[key] ?? base ?? emptyGamePlan(),
+      [key]: gameplans[key] ?? base ?? emptyGamePlanAB(),
     });
     setWeek(key);
   };
 
-  const plan: GamePlan = (week ? gameplans[week] : undefined) ?? emptyGamePlan();
+  const ab: GamePlanAB =
+    (week ? gameplans[week] : undefined) ?? emptyGamePlanAB();
 
   return (
     <section className="space-y-5">
@@ -1846,14 +1998,27 @@ function GamePlanPanel({
           No games yet. Add a game date above to build the defense and lineup.
         </div>
       ) : !week ? null : (
-        <PlanEditor
-          players={players}
-          byId={byId}
-          draftDepth={depth}
-          draftLabel="Auto-draft from depth chart"
-          plan={plan}
-          onChange={(next) => onChange({ ...gameplans, [week]: next })}
-        />
+        <>
+          <SideToggle side={side} onSelect={setSide} />
+
+          <NotesCard
+            key={week}
+            week={week}
+            note={notes[week] ?? ""}
+            onSave={(text) => onSaveNote(week, text)}
+          />
+
+          <PlanEditor
+            players={players}
+            byId={byId}
+            draftDepth={depth}
+            draftLabel="Auto-draft from depth chart"
+            plan={ab[side]}
+            onChange={(next) =>
+              onChange({ ...gameplans, [week]: { ...ab, [side]: next } })
+            }
+          />
+        </>
       )}
     </section>
   );
