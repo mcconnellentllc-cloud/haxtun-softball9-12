@@ -1185,6 +1185,7 @@ function ComparePanel({
 
   return (
     <section className="space-y-5">
+      <CoachSelect coach={coach} onChoose={onChooseCoach} />
       <GameSelect date={week} onSelect={setWeek} />
       <SideToggle side={side} onSelect={setSide} />
 
@@ -1230,24 +1231,8 @@ function ComparePanel({
           />
         </div>
       ) : (
-        <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-          <h3 className="font-display text-xl tracking-wider text-neutral-200">
-            Your proposal
-          </h3>
-          <p className="mt-1 text-sm text-neutral-400">
-            Pick which coach you are to propose a defense and lineup:
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {COACHES.map((c) => (
-              <button
-                key={c}
-                onClick={() => onChooseCoach(c)}
-                className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 text-sm hover:border-red-600"
-              >
-                {c}
-              </button>
-            ))}
-          </div>
+        <div className="rounded border border-neutral-800 bg-neutral-900 p-6 text-neutral-400">
+          Pick your name up top to start your proposal.
         </div>
       )}
 
@@ -1258,6 +1243,56 @@ function ComparePanel({
         </>
       )}
     </section>
+  );
+}
+
+// Coach identity picker for the Propose tab. Always visible and tappable so any
+// coach can switch to themselves on a shared device; the choice is remembered
+// per device (localStorage, via onChoose).
+function CoachSelect({
+  coach,
+  onChoose,
+}: {
+  coach: string | null;
+  onChoose: (name: string) => void;
+}) {
+  return (
+    <div className="rounded border border-neutral-800 bg-neutral-900 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-display text-lg tracking-wider text-neutral-200">
+          I am
+        </span>
+        {COACHES.map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => onChoose(c)}
+            aria-pressed={coach === c}
+            className={
+              "rounded px-4 py-2 font-display text-lg tracking-wider transition-colors " +
+              (coach === c
+                ? "bg-red-600 text-white"
+                : "border border-neutral-700 bg-black/40 text-neutral-300 hover:border-red-600")
+            }
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-neutral-500">
+        {coach ? (
+          <>
+            Entering as{" "}
+            <span className="text-neutral-300">{coach}</span> — tap a name to
+            switch. Saved on this device.
+          </>
+        ) : (
+          <span className="text-amber-300">
+            Tap your name so your proposal is saved under you.
+          </span>
+        )}
+      </p>
+    </div>
   );
 }
 
