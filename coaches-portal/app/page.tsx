@@ -19,21 +19,29 @@ type Choice = "A" | "B";
 type Lineups = {
   A: string[]; // batting order, player ids
   B: string[];
-  votes: Record<string, Choice>; // coach name -> chosen lineup
 };
+
+// One coach's idea of the starting alignment: a starter at each field
+// position, plus their preferred batting order.
+type Proposal = {
+  positions: Record<string, string>; // position -> player id (one starter per spot)
+  order: string[]; // batting order, player ids
+};
+// coach name -> their proposal
+type Proposals = Record<string, Proposal>;
 
 /* ---------------------------- Constants -------------------------- */
 
 const POSITIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"] as const;
 const COACHES = ["Mike", "Kyle", "Jordan", "Emily"] as const;
-const TABS = ["roster", "depth", "lineups", "vote"] as const;
+const TABS = ["roster", "depth", "lineups", "compare"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   roster: "Roster",
   depth: "Depth Chart",
   lineups: "Lineups",
-  vote: "Vote",
+  compare: "Compare",
 };
 
 const COACH_KEY = "bulldogs-coach";
@@ -62,15 +70,30 @@ function normalizeLineups(raw: unknown): Lineups {
     string,
     unknown
   >;
-  const votesSrc = (src.votes && typeof src.votes === "object"
-    ? src.votes
-    : {}) as Record<string, unknown>;
-  const votes: Record<string, Choice> = {};
+  return { A: asIdList(src.A), B: asIdList(src.B) };
+}
+
+function normalizeProposals(raw: unknown): Proposals {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Record<
+    string,
+    unknown
+  >;
+  const out: Proposals = {};
   for (const coach of COACHES) {
-    const v = votesSrc[coach];
-    if (v === "A" || v === "B") votes[coach] = v;
+    const p = (src[coach] && typeof src[coach] === "object"
+      ? src[coach]
+      : {}) as Record<string, unknown>;
+    const posSrc = (p.positions && typeof p.positions === "object"
+      ? p.positions
+      : {}) as Record<string, unknown>;
+    const positions: Record<string, string> = {};
+    for (const pos of POSITIONS) {
+      const v = posSrc[pos];
+      if (typeof v === "string" && v) positions[pos] = v;
+    }
+    out[coach] = { positions, order: asIdList(p.order) };
   }
-  return { A: asIdList(src.A), B: asIdList(src.B), votes };
+  return out;
 }
 
 async function putState(path: string, body: unknown, coach: string | null) {
@@ -94,7 +117,10 @@ async function putState(path: string, body: unknown, coach: string | null) {
 export default function Home() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [depth, setDepth] = useState<DepthChart>(() => normalizeDepth({}));
-  const [lineups, setLineups] = useState<Lineups>({ A: [], B: [], votes: {} });
+  const [lineups, setLineups] = useState<Lineups>({ A: [], B: [] });
+  const [proposals, setProposals] = useState<Proposals>(() =>
+    normalizeProposals({}),
+  );
   const [tab, setTab] = useState<Tab>("roster");
   const [coach, setCoach] = useState<string | null>(null);
 
@@ -125,6 +151,7 @@ export default function Home() {
         setPlayers(Array.isArray(pData.players) ? pData.players : []);
         setDepth(normalizeDepth(sData.depth_chart));
         setLineups(normalizeLineups(sData.lineups));
+        setProposals(normalizeProposals(sData.proposals));
       } catch (err) {
         if (!cancelled)
           setError(err instanceof Error ? err.message : "Failed to load");
@@ -167,7 +194,7 @@ export default function Home() {
     [depth, coach],
   );
 
-  // Persist lineups (+ votes); roll back on failure.
+  // Persist lineups; roll back on failure.
   const saveLineups = useCallback(
     async (next: Lineups) => {
       const prev = lineups;
@@ -180,6 +207,21 @@ export default function Home() {
       }
     },
     [lineups, coach],
+  );
+
+  // Persist coach proposals; roll back on failure.
+  const saveProposals = useCallback(
+    async (next: Proposals) => {
+      const prev = proposals;
+      setProposals(next);
+      try {
+        await putState("/api/state/proposals", next, coach);
+      } catch (err) {
+        setProposals(prev);
+        setError(err instanceof Error ? err.message : "Save failed");
+      }
+    },
+    [proposals, coach],
   );
 
   return (
@@ -235,11 +277,13 @@ export default function Home() {
             onChange={saveLineups}
           />
         ) : (
-          <VotePanel
+          <ComparePanel
+            players={players}
+            byId={byId}
             coach={coach}
-            lineups={lineups}
+            proposals={proposals}
             onChooseCoach={chooseCoach}
-            onChange={saveLineups}
+            onChange={saveProposals}
           />
         )}
       </div>
@@ -412,54 +456,121 @@ function DepthPanel({
   };
 
   return (
-    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {POSITIONS.map((pos) => {
-        const list = depth[pos] ?? [];
-        return (
-          <div
-            key={pos}
-            className="rounded border border-neutral-800 bg-neutral-900 p-3"
-          >
-            <h3 className="font-display text-2xl tracking-wider text-red-500">
-              {pos}
-            </h3>
-            <ol className="mt-2 space-y-1">
-              {list.length === 0 && (
-                <li className="text-xs text-neutral-600">No one assigned</li>
-              )}
-              {list.map((id, idx) => (
-                <li
-                  key={id}
-                  className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
-                >
-                  <span className="truncate">
-                    <span className="text-neutral-500">{idx + 1}.</span>{" "}
-                    <PlayerName p={byId.get(id)} />
-                  </span>
-                  <span className="flex shrink-0 items-center gap-1">
-                    <IconBtn label="Up" onClick={() => move(pos, idx, -1)}>
-                      ↑
-                    </IconBtn>
-                    <IconBtn label="Down" onClick={() => move(pos, idx, 1)}>
-                      ↓
-                    </IconBtn>
-                    <IconBtn label="Remove" onClick={() => remove(pos, id)} danger>
-                      ×
-                    </IconBtn>
-                  </span>
-                </li>
-              ))}
-            </ol>
-            <div className="mt-2">
-              <AddPlayer
-                players={players}
-                exclude={new Set(list)}
-                onAdd={(id) => add(pos, id)}
-              />
+    <>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {POSITIONS.map((pos) => {
+          const list = depth[pos] ?? [];
+          return (
+            <div
+              key={pos}
+              className="rounded border border-neutral-800 bg-neutral-900 p-3"
+            >
+              <h3 className="font-display text-2xl tracking-wider text-red-500">
+                {pos}
+              </h3>
+              <ol className="mt-2 space-y-1">
+                {list.length === 0 && (
+                  <li className="text-xs text-neutral-600">No one assigned</li>
+                )}
+                {list.map((id, idx) => (
+                  <li
+                    key={id}
+                    className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
+                  >
+                    <span className="truncate">
+                      <span className="text-neutral-500">{idx + 1}.</span>{" "}
+                      <PlayerName p={byId.get(id)} />
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      <IconBtn label="Up" onClick={() => move(pos, idx, -1)}>
+                        ↑
+                      </IconBtn>
+                      <IconBtn label="Down" onClick={() => move(pos, idx, 1)}>
+                        ↓
+                      </IconBtn>
+                      <IconBtn
+                        label="Remove"
+                        onClick={() => remove(pos, id)}
+                        danger
+                      >
+                        ×
+                      </IconBtn>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              <div className="mt-2">
+                <AddPlayer
+                  players={players}
+                  exclude={new Set(list)}
+                  onAdd={(id) => add(pos, id)}
+                />
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </section>
+
+      <PositionCounts players={players} depth={depth} />
+    </>
+  );
+}
+
+// Shows, per player, how many positions they're listed at on the depth chart
+// (some girls can play several spots) plus which ones. Sorted most-versatile
+// first so unplaced players surface at the bottom.
+function PositionCounts({
+  players,
+  depth,
+}: {
+  players: Player[];
+  depth: DepthChart;
+}) {
+  const rows = players
+    .map((p) => {
+      const at = POSITIONS.filter((pos) => (depth[pos] ?? []).includes(p.id));
+      return { player: p, positions: at, count: at.length };
+    })
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        (a.player.jersey ?? 9999) - (b.player.jersey ?? 9999),
+    );
+
+  return (
+    <section className="mt-6 rounded border border-neutral-800 bg-neutral-900 p-4">
+      <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+        Position coverage
+      </h2>
+      <ul className="mt-3 divide-y divide-neutral-800">
+        {rows.map(({ player, positions, count }) => (
+          <li
+            key={player.id}
+            className="flex items-center justify-between gap-3 py-2 text-sm"
+          >
+            <span className="min-w-0 truncate">
+              <PlayerName p={player} />
+            </span>
+            <span className="flex shrink-0 items-center gap-3">
+              <span className="text-neutral-400">
+                {count === 0 ? (
+                  <span className="text-neutral-600">unplaced</span>
+                ) : (
+                  positions.join(", ")
+                )}
+              </span>
+              <span
+                className={
+                  "w-6 text-right font-display text-lg tracking-wider " +
+                  (count === 0 ? "text-neutral-600" : "text-red-500")
+                }
+              >
+                {count}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -566,129 +677,376 @@ function BattingOrder({
   );
 }
 
-/* ------------------------------ Vote ----------------------------- */
+/* ----------------------------- Compare --------------------------- */
 
-function VotePanel({
+const EMPTY_PROPOSAL: Proposal = { positions: {}, order: [] };
+
+// Which coaches have entered anything at all.
+function submittedCoaches(proposals: Proposals): string[] {
+  return COACHES.filter((c) => {
+    const p = proposals[c];
+    return p && (Object.keys(p.positions).length > 0 || p.order.length > 0);
+  });
+}
+
+type RowStatus = "agree" | "differ" | "single" | "none";
+
+// Compare a set of per-coach picks (player id or undefined) for one slot.
+function rowStatus(picks: (string | undefined)[]): RowStatus {
+  const given = picks.filter((x): x is string => !!x);
+  if (given.length === 0) return "none";
+  const distinct = new Set(given);
+  if (distinct.size === 1) return given.length >= 2 ? "agree" : "single";
+  return "differ";
+}
+
+function ComparePanel({
+  players,
+  byId,
   coach,
-  lineups,
+  proposals,
   onChooseCoach,
   onChange,
 }: {
+  players: Player[];
+  byId: Map<string, Player>;
   coach: string | null;
-  lineups: Lineups;
+  proposals: Proposals;
   onChooseCoach: (name: string) => void;
-  onChange: (next: Lineups) => void;
+  onChange: (next: Proposals) => void;
 }) {
-  const votes = lineups.votes;
-  const tallyA = COACHES.filter((c) => votes[c] === "A").length;
-  const tallyB = COACHES.filter((c) => votes[c] === "B").length;
-  const active: Choice | null =
-    tallyA > tallyB ? "A" : tallyB > tallyA ? "B" : null;
-
-  const vote = (choice: Choice) => {
-    if (!coach) return;
-    onChange({ ...lineups, votes: { ...votes, [coach]: choice } });
-  };
+  if (players.length === 0) return <EmptyRoster what="comparison" />;
 
   return (
     <section className="space-y-5">
-      <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-        <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-          Active lineup
-        </h2>
-        {active ? (
-          <p className="mt-1 text-neutral-300">
-            Coaches favor{" "}
-            <span className="font-display text-3xl tracking-wider text-red-500">
-              Lineup {active}
-            </span>{" "}
-            <span className="text-neutral-500">
-              ({tallyA}–{tallyB})
-            </span>
+      {coach ? (
+        <MyProposalEditor
+          players={players}
+          byId={byId}
+          coach={coach}
+          proposal={proposals[coach] ?? EMPTY_PROPOSAL}
+          onChange={(mine) => onChange({ ...proposals, [coach]: mine })}
+        />
+      ) : (
+        <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+          <h3 className="font-display text-xl tracking-wider text-neutral-200">
+            Your proposal
+          </h3>
+          <p className="mt-1 text-sm text-neutral-400">
+            Pick which coach you are to enter where players should play:
           </p>
-        ) : (
-          <p className="mt-1 text-neutral-400">
-            {tallyA + tallyB === 0
-              ? "No votes yet."
-              : `Tied ${tallyA}–${tallyB}.`}
-          </p>
-        )}
-      </div>
-
-      <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-        <h3 className="font-display text-xl tracking-wider text-neutral-200">
-          Cast your vote
-        </h3>
-        {coach ? (
-          <>
-            <p className="mt-1 text-sm text-neutral-400">
-              Voting as <span className="text-neutral-100">{coach}</span>
-            </p>
-            <div className="mt-3 flex gap-2">
-              {(["A", "B"] as const).map((c) => (
-                <button
-                  key={c}
-                  onClick={() => vote(c)}
-                  className={
-                    "flex-1 rounded px-4 py-3 font-display text-2xl tracking-wider transition-colors " +
-                    (votes[coach] === c
-                      ? "bg-red-600 text-white"
-                      : "border border-neutral-700 bg-black/40 text-neutral-200 hover:border-red-600")
-                  }
-                >
-                  Lineup {c}
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="mt-2">
-            <p className="text-sm text-neutral-400">
-              Pick which coach you are to vote:
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {COACHES.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => onChooseCoach(c)}
-                  className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 text-sm hover:border-red-600"
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {COACHES.map((c) => (
+              <button
+                key={c}
+                onClick={() => onChooseCoach(c)}
+                className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 text-sm hover:border-red-600"
+              >
+                {c}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
+      )}
+
+      <PositionsCompare byId={byId} proposals={proposals} />
+      <BattingCompare byId={byId} proposals={proposals} />
+    </section>
+  );
+}
+
+function MyProposalEditor({
+  players,
+  byId,
+  coach,
+  proposal,
+  onChange,
+}: {
+  players: Player[];
+  byId: Map<string, Player>;
+  coach: string;
+  proposal: Proposal;
+  onChange: (next: Proposal) => void;
+}) {
+  // Assigning a player to a position removes them from any other position so a
+  // coach's starting nine never lists the same girl twice.
+  const setPosition = (pos: string, id: string) => {
+    const positions: Record<string, string> = {};
+    for (const [k, v] of Object.entries(proposal.positions)) {
+      if (v !== id) positions[k] = v;
+    }
+    if (id) positions[pos] = id;
+    else delete positions[pos];
+    onChange({ ...proposal, positions });
+  };
+
+  const addBatter = (id: string) => {
+    if (proposal.order.includes(id)) return;
+    onChange({ ...proposal, order: [...proposal.order, id] });
+  };
+  const removeBatter = (id: string) =>
+    onChange({ ...proposal, order: proposal.order.filter((x) => x !== id) });
+  const moveBatter = (idx: number, dir: -1 | 1) => {
+    const list = [...proposal.order];
+    const j = idx + dir;
+    if (j < 0 || j >= list.length) return;
+    [list[idx], list[j]] = [list[j], list[idx]];
+    onChange({ ...proposal, order: list });
+  };
+
+  const taken = new Set(Object.values(proposal.positions));
+
+  return (
+    <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+      <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+        Your proposal
+      </h2>
+      <p className="mt-1 text-sm text-neutral-400">
+        Entering as <span className="text-neutral-100">{coach}</span>
+      </p>
+
+      <h3 className="mt-4 font-display text-lg tracking-wider text-neutral-200">
+        Positions
+      </h3>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {POSITIONS.map((pos) => {
+          const current = proposal.positions[pos] ?? "";
+          // Allow the player already in this slot plus anyone not taken.
+          const options = players.filter(
+            (p) => p.id === current || !taken.has(p.id),
+          );
+          return (
+            <label
+              key={pos}
+              className="flex items-center gap-2 rounded bg-black/40 px-2 py-1.5"
+            >
+              <span className="w-8 shrink-0 font-display text-lg tracking-wider text-red-500">
+                {pos}
+              </span>
+              <select
+                value={current}
+                onChange={(e) => setPosition(pos, e.target.value)}
+                className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-red-600"
+              >
+                <option value="">—</option>
+                {options.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {jerseyTag(p)} {p.firstName} {p.lastName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          );
+        })}
       </div>
 
-      <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-        <h3 className="font-display text-xl tracking-wider text-neutral-200">
-          Tally
-        </h3>
-        <ul className="mt-2 divide-y divide-neutral-800">
-          {COACHES.map((c) => (
-            <li key={c} className="flex items-center justify-between py-2 text-sm">
-              <span className="text-neutral-200">{c}</span>
-              {votes[c] ? (
-                <span className="font-display tracking-wider text-red-500">
-                  Lineup {votes[c]}
-                </span>
-              ) : (
-                <span className="text-neutral-600">—</span>
-              )}
-            </li>
-          ))}
-        </ul>
-        <div className="mt-3 flex justify-between border-t border-neutral-800 pt-3 text-sm">
-          <span className="text-neutral-400">
-            A: <span className="text-neutral-100">{tallyA}</span>
-          </span>
-          <span className="text-neutral-400">
-            B: <span className="text-neutral-100">{tallyB}</span>
-          </span>
-        </div>
+      <h3 className="mt-5 font-display text-lg tracking-wider text-neutral-200">
+        Batting order
+      </h3>
+      <ol className="mt-2 space-y-1">
+        {proposal.order.length === 0 && (
+          <li className="text-xs text-neutral-600">No batters yet</li>
+        )}
+        {proposal.order.map((id, idx) => (
+          <li
+            key={id}
+            className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 text-sm"
+          >
+            <span className="truncate">
+              <span className="inline-block w-5 text-neutral-500">
+                {idx + 1}.
+              </span>{" "}
+              <PlayerName p={byId.get(id)} />
+            </span>
+            <span className="flex shrink-0 items-center gap-1">
+              <IconBtn label="Up" onClick={() => moveBatter(idx, -1)}>
+                ↑
+              </IconBtn>
+              <IconBtn label="Down" onClick={() => moveBatter(idx, 1)}>
+                ↓
+              </IconBtn>
+              <IconBtn label="Remove" onClick={() => removeBatter(id)} danger>
+                ×
+              </IconBtn>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-2">
+        <AddPlayer
+          players={players}
+          exclude={new Set(proposal.order)}
+          onAdd={addBatter}
+          label="Add batter…"
+        />
       </div>
-    </section>
+    </div>
+  );
+}
+
+const STATUS_BADGE: Record<RowStatus, { label: string; cls: string }> = {
+  agree: { label: "Agree", cls: "text-emerald-400" },
+  differ: { label: "Differs", cls: "text-red-400" },
+  single: { label: "1 coach", cls: "text-neutral-500" },
+  none: { label: "—", cls: "text-neutral-600" },
+};
+
+function CompareCell({
+  status,
+  children,
+}: {
+  status: RowStatus;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={
+        "rounded border bg-black/40 p-3 " +
+        (status === "differ"
+          ? "border-red-900/70"
+          : status === "agree"
+            ? "border-emerald-900/60"
+            : "border-neutral-800")
+      }
+    >
+      {children}
+    </div>
+  );
+}
+
+function CoachPick({
+  coach,
+  p,
+}: {
+  coach: string;
+  p: Player | undefined;
+}) {
+  return (
+    <li className="flex items-center justify-between gap-2 py-0.5 text-sm">
+      <span className="text-neutral-400">{coach}</span>
+      {p ? (
+        <span className="truncate text-neutral-100">
+          <PlayerName p={p} />
+        </span>
+      ) : (
+        <span className="text-neutral-600">—</span>
+      )}
+    </li>
+  );
+}
+
+function PositionsCompare({
+  byId,
+  proposals,
+}: {
+  byId: Map<string, Player>;
+  proposals: Proposals;
+}) {
+  const submitted = submittedCoaches(proposals);
+  const rows = POSITIONS.map((pos) => {
+    const picks = COACHES.map((c) => proposals[c]?.positions?.[pos]);
+    return { pos, picks, status: rowStatus(picks) };
+  });
+  const agree = rows.filter((r) => r.status === "agree").length;
+  const differ = rows.filter((r) => r.status === "differ").length;
+
+  return (
+    <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+          Positions
+        </h2>
+        <p className="text-sm">
+          <span className="text-emerald-400">{agree} agree</span>
+          <span className="text-neutral-600"> · </span>
+          <span className="text-red-400">{differ} differ</span>
+        </p>
+      </div>
+      {submitted.length === 0 ? (
+        <p className="mt-2 text-sm text-neutral-400">
+          No proposals yet. Enter yours above to start the comparison.
+        </p>
+      ) : (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map(({ pos, picks, status }) => {
+            const badge = STATUS_BADGE[status];
+            return (
+              <CompareCell key={pos} status={status}>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-xl tracking-wider text-red-500">
+                    {pos}
+                  </h3>
+                  <span className={"text-xs " + badge.cls}>{badge.label}</span>
+                </div>
+                <ul className="mt-1">
+                  {COACHES.map((c, i) => (
+                    <CoachPick key={c} coach={c} p={byId.get(picks[i] ?? "")} />
+                  ))}
+                </ul>
+              </CompareCell>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BattingCompare({
+  byId,
+  proposals,
+}: {
+  byId: Map<string, Player>;
+  proposals: Proposals;
+}) {
+  const submitted = submittedCoaches(proposals);
+  const maxLen = Math.max(0, ...COACHES.map((c) => proposals[c]?.order.length ?? 0));
+  const rows = Array.from({ length: maxLen }, (_, i) => {
+    const picks = COACHES.map((c) => proposals[c]?.order?.[i]);
+    return { slot: i, picks, status: rowStatus(picks) };
+  });
+  const agree = rows.filter((r) => r.status === "agree").length;
+  const differ = rows.filter((r) => r.status === "differ").length;
+
+  return (
+    <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+          Batting order
+        </h2>
+        <p className="text-sm">
+          <span className="text-emerald-400">{agree} agree</span>
+          <span className="text-neutral-600"> · </span>
+          <span className="text-red-400">{differ} differ</span>
+        </p>
+      </div>
+      {submitted.length === 0 ? (
+        <p className="mt-2 text-sm text-neutral-400">
+          No proposals yet. Enter yours above to start the comparison.
+        </p>
+      ) : (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map(({ slot, picks, status }) => {
+            const badge = STATUS_BADGE[status];
+            return (
+              <CompareCell key={slot} status={status}>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-xl tracking-wider text-red-500">
+                    {slot + 1}
+                  </h3>
+                  <span className={"text-xs " + badge.cls}>{badge.label}</span>
+                </div>
+                <ul className="mt-1">
+                  {COACHES.map((c, i) => (
+                    <CoachPick key={c} coach={c} p={byId.get(picks[i] ?? "")} />
+                  ))}
+                </ul>
+              </CompareCell>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
