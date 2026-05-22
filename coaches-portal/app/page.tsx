@@ -60,7 +60,7 @@ const COACHES = ["Kyle", "Jordan", "Emily"] as const;
 const INNINGS = 5;
 const BATTING_SLOTS = 12;
 const SLOTS = Array.from({ length: BATTING_SLOTS }, (_, i) => String(i + 1));
-const TABS = ["roster", "teams", "depth", "compare", "plan"] as const;
+const TABS = ["roster", "teams", "depth", "compare", "plan", "stats"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -68,6 +68,7 @@ const TAB_LABELS: Record<Tab, string> = {
   teams: "Teams",
   depth: "Depth Chart",
   compare: "Propose",
+  stats: "Stats",
   plan: "Game Plan",
 };
 
@@ -489,7 +490,7 @@ export default function Home() {
             onChange={saveProposals}
             onSaveNote={saveNote}
           />
-        ) : (
+        ) : tab === "plan" ? (
           <GamePlanPanel
             players={players}
             byId={byId}
@@ -500,6 +501,8 @@ export default function Home() {
             onChange={saveGameplans}
             onSaveNote={saveNote}
           />
+        ) : (
+          <StatsPanel />
         )}
       </div>
     </main>
@@ -2066,6 +2069,332 @@ function GamePlanPanel({
       )}
     </section>
   );
+}
+
+/* ----------------------------- Stats ----------------------------- */
+
+type RawBat = {
+  num?: number;
+  name?: string;
+  gp?: number;
+  ab?: number;
+  h?: number;
+  rbi?: number;
+  bb?: number;
+  avg?: string | number;
+  obp?: string | number;
+};
+type RawPitch = {
+  num?: number;
+  name?: string;
+  gp?: number;
+  ip?: string | number;
+  so?: number;
+  era?: string | number;
+  whip?: string | number;
+};
+type RawField = {
+  num?: number;
+  name?: string;
+  g?: number;
+  po?: number;
+  a?: number;
+  e?: number;
+  fpct?: string | number;
+};
+type StatsData = {
+  last_updated: string | null;
+  games_played: number | null;
+  batting: RawBat[];
+  pitching: RawPitch[];
+  fielding: RawField[];
+};
+
+// Parse a stat that may arrive as a number or a string like ".667" / "10.50" /
+// "—". Non-numbers (dashes, blanks) become 0.
+function statNum(v: unknown): number {
+  const n = typeof v === "number" ? v : parseFloat(String(v ?? ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+// Display name: the data is already first-name + last-initial; the name-withheld
+// player has an empty name, so fall back to a dash (her jersey shows in the # column).
+function statName(name: unknown): string {
+  const s = String(name ?? "").trim();
+  return s || "—";
+}
+
+type Ranked<T> = { row: T; score: number; active: boolean; rank: number | null };
+
+// Composite ranking: each metric is normalized to the roster's max (0–1), the
+// composite is their average, and active players sort above inactive ones.
+function rankRows<T>(
+  rows: T[],
+  metrics: ((r: T) => number)[],
+  isActive: (r: T) => boolean,
+): Ranked<T>[] {
+  const maxes = metrics.map((m) => Math.max(0, ...rows.map((r) => m(r))));
+  const scored: Ranked<T>[] = rows.map((row) => {
+    const parts = metrics.map((m, i) => (maxes[i] > 0 ? m(row) / maxes[i] : 0));
+    const score = parts.reduce((a, b) => a + b, 0) / (metrics.length || 1);
+    return { row, score, active: isActive(row), rank: null };
+  });
+  scored.sort(
+    (a, b) => Number(b.active) - Number(a.active) || b.score - a.score,
+  );
+  let r = 0;
+  for (const s of scored) if (s.active) s.rank = ++r;
+  return scored;
+}
+
+// "Lower is better" → biggest inverse, with a 0 value (e.g. a perfect 0.00 ERA)
+// treated as the roster best rather than dividing by zero.
+function invMetric(
+  rows: { v: number; active: boolean }[],
+): (i: number) => number {
+  const finite = rows.filter((r) => r.active && r.v > 0).map((r) => 1 / r.v);
+  const max = finite.length ? Math.max(...finite) : 1;
+  return (i) => {
+    const r = rows[i];
+    if (!r.active) return 0;
+    return r.v > 0 ? 1 / r.v : max;
+  };
+}
+
+function StatsPanel() {
+  const [data, setData] = useState<StatsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/stats", { cache: "no-store" });
+        if (!res.ok) throw new Error(`Stats load failed (${res.status})`);
+        const d = (await res.json()) as StatsData;
+        if (!cancelled) setData(d);
+      } catch (err) {
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : "Failed to load stats");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) return <p className="text-neutral-400">Loading…</p>;
+  if (error)
+    return (
+      <div className="rounded border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+        {error}
+      </div>
+    );
+  if (!data) return null;
+
+  const batting = rankRows(
+    data.batting ?? [],
+    [
+      (b) => statNum(b.avg),
+      (b) => statNum(b.obp),
+      (b) => statNum(b.h),
+      (b) => statNum(b.rbi),
+    ],
+    (b) => statNum(b.ab) > 0,
+  );
+
+  const pitchRows = data.pitching ?? [];
+  const pActive = pitchRows.map((p) => statNum(p.ip) > 0);
+  const invEra = invMetric(
+    pitchRows.map((p, i) => ({ v: statNum(p.era), active: pActive[i] })),
+  );
+  const invWhip = invMetric(
+    pitchRows.map((p, i) => ({ v: statNum(p.whip), active: pActive[i] })),
+  );
+  const pitching = rankRows(
+    pitchRows.map((p, i) => ({ p, i })),
+    [(x) => invEra(x.i), (x) => statNum(x.p.so), (x) => invWhip(x.i)],
+    (x) => pActive[x.i],
+  );
+
+  const fielding = rankRows(
+    data.fielding ?? [],
+    [
+      (f) => statNum(f.fpct),
+      (f) => statNum(f.po),
+      (f) => statNum(f.a),
+      (f) => 1 / (statNum(f.e) + 1),
+    ],
+    (f) => statNum(f.g) > 0,
+  );
+
+  const updated = data.last_updated
+    ? String(data.last_updated).slice(0, 10)
+    : null;
+
+  return (
+    <section className="space-y-5">
+      <p className="text-sm text-neutral-400">
+        Ranked by a composite score — each stat normalized to the roster&rsquo;s
+        best (0–1), then averaged. Players with no game action sort to the
+        bottom.
+        {data.games_played != null && (
+          <>
+            {" "}
+            Through{" "}
+            <span className="text-neutral-200">
+              {data.games_played} game{data.games_played === 1 ? "" : "s"}
+            </span>
+            {updated && (
+              <>
+                {" "}
+                · updated <span className="text-neutral-200">{updated}</span>
+              </>
+            )}
+            .
+          </>
+        )}
+      </p>
+
+      <StatTable
+        title="Batting"
+        headers={["Rank", "#", "Player", "GP", "AB", "H", "RBI", "BB", "AVG", "OBP", "Score"]}
+        empty={batting.length === 0 ? "No batting stats yet. Updated after each game." : null}
+      >
+        {batting.map(({ row, score, active, rank }, idx) => (
+          <StatRow key={`${row.num}-${idx}`} active={active} rank={rank} num={row.num} name={row.name} score={active ? score : null}>
+            <StatCell>{statNum(row.gp)}</StatCell>
+            <StatCell>{statNum(row.ab)}</StatCell>
+            <StatCell>{statNum(row.h)}</StatCell>
+            <StatCell>{statNum(row.rbi)}</StatCell>
+            <StatCell>{statNum(row.bb)}</StatCell>
+            <StatCell>{String(row.avg ?? "—")}</StatCell>
+            <StatCell>{String(row.obp ?? "—")}</StatCell>
+          </StatRow>
+        ))}
+      </StatTable>
+
+      <StatTable
+        title="Pitching"
+        headers={["Rank", "#", "Player", "GP", "IP", "K", "ERA", "WHIP", "Score"]}
+        empty={pitching.length === 0 ? "No pitching stats yet. Updated after each game." : null}
+      >
+        {pitching.map(({ row: { p }, score, active, rank }, idx) => (
+          <StatRow key={`${p.num}-${idx}`} active={active} rank={rank} num={p.num} name={p.name} score={active ? score : null}>
+            <StatCell>{statNum(p.gp)}</StatCell>
+            <StatCell>{String(p.ip ?? "—")}</StatCell>
+            <StatCell>{statNum(p.so)}</StatCell>
+            <StatCell>{String(p.era ?? "—")}</StatCell>
+            <StatCell>{String(p.whip ?? "—")}</StatCell>
+          </StatRow>
+        ))}
+      </StatTable>
+
+      <StatTable
+        title="Fielding"
+        headers={["Rank", "#", "Player", "G", "PO", "A", "E", "FPCT", "Score"]}
+        empty={fielding.length === 0 ? "No fielding stats yet. Updated after each game." : null}
+      >
+        {fielding.map(({ row, score, active, rank }, idx) => (
+          <StatRow key={`${row.num}-${idx}`} active={active} rank={rank} num={row.num} name={row.name} score={active ? score : null}>
+            <StatCell>{statNum(row.g)}</StatCell>
+            <StatCell>{statNum(row.po)}</StatCell>
+            <StatCell>{statNum(row.a)}</StatCell>
+            <StatCell>{statNum(row.e)}</StatCell>
+            <StatCell>{String(row.fpct ?? "—")}</StatCell>
+          </StatRow>
+        ))}
+      </StatTable>
+    </section>
+  );
+}
+
+function StatTable({
+  title,
+  headers,
+  empty,
+  children,
+}: {
+  title: string;
+  headers: string[];
+  empty: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+      <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+        {title}
+      </h2>
+      {empty ? (
+        <p className="mt-2 text-sm text-neutral-400">{empty}</p>
+      ) : (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="text-neutral-400">
+                {headers.map((h, i) => (
+                  <th
+                    key={h}
+                    className={
+                      "px-2 py-1 font-display tracking-wider " +
+                      (i >= 3 ? "text-right" : "text-left")
+                    }
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>{children}</tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatRow({
+  active,
+  rank,
+  num,
+  name,
+  score,
+  children,
+}: {
+  active: boolean;
+  rank: number | null;
+  num?: number;
+  name?: string;
+  score: number | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <tr
+      className={
+        "border-t border-neutral-800 " +
+        (active ? "" : "text-neutral-600")
+      }
+    >
+      <td className="px-2 py-1 text-left font-display tracking-wider text-neutral-400">
+        {rank ?? "—"}
+      </td>
+      <td className="px-2 py-1 text-left font-display tracking-wider text-red-500">
+        {num ?? "—"}
+      </td>
+      <td className="px-2 py-1 text-left">{statName(name)}</td>
+      {children}
+      <td className="px-2 py-1 text-right font-display tracking-wider text-red-400">
+        {score == null ? "—" : score.toFixed(2)}
+      </td>
+    </tr>
+  );
+}
+
+function StatCell({ children }: { children: React.ReactNode }) {
+  return <td className="px-2 py-1 text-right tabular-nums">{children}</td>;
 }
 
 /* ------------------------- Small helpers ------------------------- */
