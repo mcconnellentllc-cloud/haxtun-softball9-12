@@ -6,15 +6,16 @@ import {
   logActivity,
 } from "@/lib/airtable";
 import { stripFromDepth, stripFromLineups } from "@/lib/lineup-cleanup";
+import { withErrorHandling } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
 const noStore = { "Cache-Control": "no-store" };
 
-export async function PATCH(
+export const PATCH = withErrorHandling(async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
   const body = (await req.json().catch(() => ({}))) as {
     firstName?: string;
@@ -43,12 +44,12 @@ export async function PATCH(
     `${player.firstName} ${player.lastName}`,
   );
   return NextResponse.json({ player }, { headers: noStore });
-}
+});
 
-export async function DELETE(
+export const DELETE = withErrorHandling(async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
 
   // Soft delete the player...
@@ -65,4 +66,4 @@ export async function DELETE(
     id,
   );
   return NextResponse.json({ ok: true }, { headers: noStore });
-}
+});
