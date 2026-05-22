@@ -56,7 +56,8 @@ type Notes = Record<string, string>;
 /* ---------------------------- Constants -------------------------- */
 
 const POSITIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"] as const;
-const COACHES = ["Kyle", "Jordan", "Emily"] as const;
+// Head coach first.
+const COACHES = ["Emily", "Jordan", "Kyle"] as const;
 const INNINGS = 5;
 const BATTING_SLOTS = 12;
 const SLOTS = Array.from({ length: BATTING_SLOTS }, (_, i) => String(i + 1));
