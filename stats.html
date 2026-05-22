@@ -8,7 +8,7 @@ permalink: /stats/
 
 <p style="color:#6b6b6b;font-size:.9rem;margin-top:0">
   Through {{ site.data.stats.games_played }} game{% if site.data.stats.games_played != 1 %}s{% endif %} ·
-  Last updated <strong>{{ site.data.stats.last_updated | date: "%B %-d, %Y" }}</strong>
+  Updated <strong>{{ site.data.stats.last_updated | date: "%B %-d, %Y" }}</strong>
 </p>
 
 <h2>Batting</h2>
@@ -17,41 +17,28 @@ permalink: /stats/
   <thead>
     <tr>
       <th>#</th><th>Player</th>
-      <th class="num">GP</th><th class="num">AB</th><th class="num">R</th>
-      <th class="num">H</th><th class="num">RBI</th><th class="num">BB</th>
-      <th class="num">SO</th><th class="num">AVG</th><th class="num">OBP</th>
+      <th class="num">GP</th><th class="num">AB</th><th class="num">H</th>
+      <th class="num">RBI</th><th class="num">BB</th><th class="num">SO</th>
+      <th class="num">AVG</th><th class="num">OBP</th><th class="num">OPS</th>
     </tr>
   </thead>
   <tbody>
     {% for p in site.data.stats.batting %}
     <tr>
-      <td class="num">{{ p.num }}</td>
+      <td class="num">{{ p.jersey }}</td>
       <td>{% if p.hidden %}<span style="color:#999">—</span>{% else %}{{ p.name }}{% endif %}</td>
       <td class="num">{{ p.gp }}</td>
       <td class="num">{{ p.ab }}</td>
-      <td class="num">{{ p.r }}</td>
       <td class="num">{{ p.h }}</td>
       <td class="num">{{ p.rbi }}</td>
       <td class="num">{{ p.bb }}</td>
       <td class="num">{{ p.so }}</td>
       <td class="num">{{ p.avg }}</td>
       <td class="num">{{ p.obp }}</td>
+      <td class="num">{{ p.ops }}</td>
     </tr>
     {% endfor %}
   </tbody>
-  {% assign t = site.data.stats.batting_totals %}
-  {% if t %}
-  <tfoot>
-    <tr style="font-weight:700">
-      <td></td><td>Team</td>
-      <td class="num">{{ t.gp }}</td><td class="num">{{ t.ab }}</td>
-      <td class="num">{{ t.r }}</td><td class="num">{{ t.h }}</td>
-      <td class="num">{{ t.rbi }}</td><td class="num">{{ t.bb }}</td>
-      <td class="num">{{ t.so }}</td><td class="num">{{ t.avg }}</td>
-      <td class="num">{{ t.obp }}</td>
-    </tr>
-  </tfoot>
-  {% endif %}
 </table>
 </div>
 
@@ -61,25 +48,49 @@ permalink: /stats/
   <thead>
     <tr>
       <th>#</th><th>Player</th>
-      <th class="num">IP</th><th class="num">H</th><th class="num">R</th>
-      <th class="num">ER</th><th class="num">BB</th><th class="num">SO</th>
-      <th class="num">ERA</th><th class="num">WHIP</th><th class="num">W-L</th>
+      <th class="num">IP</th><th class="num">GP</th><th class="num">K</th>
+      <th class="num">BB</th><th class="num">ERA</th><th class="num">WHIP</th>
     </tr>
   </thead>
   <tbody>
     {% for p in site.data.stats.pitching %}
+    {% if p.ip != "0.0" %}
     <tr>
-      <td class="num">{{ p.num }}</td>
+      <td class="num">{{ p.jersey }}</td>
       <td>{% if p.hidden %}<span style="color:#999">—</span>{% else %}{{ p.name }}{% endif %}</td>
       <td class="num">{{ p.ip }}</td>
-      <td class="num">{{ p.h }}</td>
-      <td class="num">{{ p.r }}</td>
-      <td class="num">{{ p.er }}</td>
-      <td class="num">{{ p.bb }}</td>
+      <td class="num">{{ p.gp }}</td>
       <td class="num">{{ p.so }}</td>
+      <td class="num">{{ p.bb }}</td>
       <td class="num">{{ p.era }}</td>
       <td class="num">{{ p.whip }}</td>
-      <td class="num">{{ p.w }}-{{ p.l }}</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Fielding</h2>
+<div style="overflow-x:auto">
+<table class="standings-table">
+  <thead>
+    <tr>
+      <th>#</th><th>Player</th>
+      <th class="num">TC</th><th class="num">PO</th><th class="num">A</th>
+      <th class="num">E</th><th class="num">FPCT</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in site.data.stats.fielding %}
+    <tr>
+      <td class="num">{{ p.jersey }}</td>
+      <td>{% if p.hidden %}<span style="color:#999">—</span>{% else %}{{ p.name }}{% endif %}</td>
+      <td class="num">{{ p.tc }}</td>
+      <td class="num">{{ p.po }}</td>
+      <td class="num">{{ p.a }}</td>
+      <td class="num">{{ p.e }}</td>
+      <td class="num">{{ p.fpct }}</td>
     </tr>
     {% endfor %}
   </tbody>
@@ -87,10 +98,18 @@ permalink: /stats/
 </div>
 
 <p style="color:#6b6b6b;font-size:.85rem">
+  <strong>GP</strong> games played ·
+  <strong>AB</strong> at-bats ·
   <strong>AVG</strong> batting average ·
   <strong>OBP</strong> on-base percentage ·
+  <strong>OPS</strong> on-base plus slugging ·
   <strong>IP</strong> innings pitched ·
-  <strong>ER</strong> earned runs ·
+  <strong>K</strong> strikeouts ·
   <strong>ERA</strong> earned run average ·
-  <strong>WHIP</strong> walks + hits per inning
+  <strong>WHIP</strong> walks + hits per inning ·
+  <strong>TC</strong> total chances ·
+  <strong>PO</strong> putouts ·
+  <strong>A</strong> assists ·
+  <strong>E</strong> errors ·
+  <strong>FPCT</strong> fielding percentage
 </p>

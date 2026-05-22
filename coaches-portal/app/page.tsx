@@ -468,7 +468,7 @@ export default function Home() {
             onSaveNote={saveNote}
           />
         ) : (
-          <StatsPanel />
+          <StatsPanel players={players} />
         )}
       </div>
     </main>
@@ -2276,29 +2276,33 @@ function GamePlanPanel({
 /* ----------------------------- Stats ----------------------------- */
 
 type RawBat = {
-  num?: number;
+  jersey?: number;
   name?: string;
   gp?: number;
   ab?: number;
   h?: number;
   rbi?: number;
   bb?: number;
+  so?: number;
   avg?: string | number;
   obp?: string | number;
+  ops?: string | number;
 };
 type RawPitch = {
-  num?: number;
+  jersey?: number;
   name?: string;
   gp?: number;
   ip?: string | number;
   so?: number;
+  bb?: number;
   era?: string | number;
   whip?: string | number;
 };
 type RawField = {
-  num?: number;
+  jersey?: number;
   name?: string;
-  g?: number;
+  inn_total?: number;
+  tc?: number;
   po?: number;
   a?: number;
   e?: number;
@@ -2363,10 +2367,26 @@ function invMetric(
   };
 }
 
-function StatsPanel() {
+function StatsPanel({ players }: { players: Player[] }) {
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Resolve display names from the private Airtable roster by jersey, so the
+  // name-withheld player (#23, "#23" in the public file) shows her real name
+  // here in the private portal without her name ever entering the public repo.
+  const nameByJersey = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const p of players) {
+      if (p.jersey != null) {
+        const li = p.lastName.trim().charAt(0).toUpperCase();
+        m.set(p.jersey, li ? `${p.firstName} ${li}.` : p.firstName);
+      }
+    }
+    return m;
+  }, [players]);
+  const nameFor = (jersey: number | undefined, fallback: unknown) =>
+    (jersey != null && nameByJersey.get(jersey)) || statName(fallback);
 
   useEffect(() => {
     let cancelled = false;
@@ -2430,7 +2450,7 @@ function StatsPanel() {
       (f) => statNum(f.a),
       (f) => 1 / (statNum(f.e) + 1),
     ],
-    (f) => statNum(f.g) > 0,
+    (f) => statNum(f.inn_total) > 0,
   );
 
   const updated = data.last_updated
@@ -2463,7 +2483,7 @@ function StatsPanel() {
 
       <StatTable
         title="Batting"
-        headers={["Rank", "#", "Player", "GP", "AB", "H", "RBI", "BB", "AVG", "OBP", "Score"]}
+        headers={["Rank", "#", "Player", "GP", "AB", "H", "RBI", "BB", "AVG", "OBP", "OPS", "Score"]}
         empty={batting.length === 0 ? "No batting stats yet. Updated after each game." : null}
         legend={[
           ["GP", "games played"],
@@ -2473,11 +2493,12 @@ function StatsPanel() {
           ["BB", "base on balls (walks)"],
           ["AVG", "batting average"],
           ["OBP", "on-base percentage"],
+          ["OPS", "on-base plus slugging"],
           ["Score", "composite ranking (0–1)"],
         ]}
       >
         {batting.map(({ row, score, active, rank }, idx) => (
-          <StatRow key={`${row.num}-${idx}`} active={active} rank={rank} num={row.num} name={row.name} score={active ? score : null}>
+          <StatRow key={`${row.jersey}-${idx}`} active={active} rank={rank} num={row.jersey} name={nameFor(row.jersey, row.name)} score={active ? score : null}>
             <StatCell>{statNum(row.gp)}</StatCell>
             <StatCell>{statNum(row.ab)}</StatCell>
             <StatCell>{statNum(row.h)}</StatCell>
@@ -2485,28 +2506,31 @@ function StatsPanel() {
             <StatCell>{statNum(row.bb)}</StatCell>
             <StatCell>{String(row.avg ?? "—")}</StatCell>
             <StatCell>{String(row.obp ?? "—")}</StatCell>
+            <StatCell>{String(row.ops ?? "—")}</StatCell>
           </StatRow>
         ))}
       </StatTable>
 
       <StatTable
         title="Pitching"
-        headers={["Rank", "#", "Player", "GP", "IP", "K", "ERA", "WHIP", "Score"]}
+        headers={["Rank", "#", "Player", "GP", "IP", "K", "BB", "ERA", "WHIP", "Score"]}
         empty={pitching.length === 0 ? "No pitching stats yet. Updated after each game." : null}
         legend={[
           ["GP", "games played"],
           ["IP", "innings pitched"],
           ["K", "strikeouts"],
+          ["BB", "base on balls (walks)"],
           ["ERA", "earned run average"],
           ["WHIP", "walks + hits per inning"],
           ["Score", "composite ranking (0–1)"],
         ]}
       >
         {pitching.map(({ row: { p }, score, active, rank }, idx) => (
-          <StatRow key={`${p.num}-${idx}`} active={active} rank={rank} num={p.num} name={p.name} score={active ? score : null}>
+          <StatRow key={`${p.jersey}-${idx}`} active={active} rank={rank} num={p.jersey} name={nameFor(p.jersey, p.name)} score={active ? score : null}>
             <StatCell>{statNum(p.gp)}</StatCell>
             <StatCell>{String(p.ip ?? "—")}</StatCell>
             <StatCell>{statNum(p.so)}</StatCell>
+            <StatCell>{statNum(p.bb)}</StatCell>
             <StatCell>{String(p.era ?? "—")}</StatCell>
             <StatCell>{String(p.whip ?? "—")}</StatCell>
           </StatRow>
@@ -2515,10 +2539,10 @@ function StatsPanel() {
 
       <StatTable
         title="Fielding"
-        headers={["Rank", "#", "Player", "G", "PO", "A", "E", "FPCT", "Score"]}
+        headers={["Rank", "#", "Player", "TC", "PO", "A", "E", "FPCT", "Score"]}
         empty={fielding.length === 0 ? "No fielding stats yet. Updated after each game." : null}
         legend={[
-          ["G", "games"],
+          ["TC", "total chances"],
           ["PO", "putouts"],
           ["A", "assists"],
           ["E", "errors"],
@@ -2527,8 +2551,8 @@ function StatsPanel() {
         ]}
       >
         {fielding.map(({ row, score, active, rank }, idx) => (
-          <StatRow key={`${row.num}-${idx}`} active={active} rank={rank} num={row.num} name={row.name} score={active ? score : null}>
-            <StatCell>{statNum(row.g)}</StatCell>
+          <StatRow key={`${row.jersey}-${idx}`} active={active} rank={rank} num={row.jersey} name={nameFor(row.jersey, row.name)} score={active ? score : null}>
+            <StatCell>{statNum(row.tc)}</StatCell>
             <StatCell>{statNum(row.po)}</StatCell>
             <StatCell>{statNum(row.a)}</StatCell>
             <StatCell>{statNum(row.e)}</StatCell>

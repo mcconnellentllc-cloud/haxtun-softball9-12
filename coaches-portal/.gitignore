@@ -24,3 +24,7 @@ public/workbox-*.js.map
 # Only scripts/players.example.json (first-initial only) is committed.
 scripts/players.json
 scripts/players.local.json
+
+# GameChanger CSV exports (raw data, not committed)
+scripts/imports/*
+!scripts/imports/.gitkeep
