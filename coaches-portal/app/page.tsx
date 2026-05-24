@@ -2292,6 +2292,21 @@ type Practice = {
   confirmations: string[];
 };
 
+type FieldBusy = {
+  id?: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  label: string;
+  source?: string;
+};
+
+// Does [aStart,aEnd) overlap [bStart,bEnd)? 24h "HH:MM" strings compare lexically.
+function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  return aStart < bEnd && bStart < aEnd;
+}
+
 function ymd(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -2320,6 +2335,7 @@ function CalendarPanel({
   onChooseCoach: (name: string) => void;
 }) {
   const [practices, setPractices] = useState<Practice[]>([]);
+  const [busy, setBusy] = useState<FieldBusy[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"month" | "list">("month");
@@ -2328,7 +2344,10 @@ function CalendarPanel({
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selected, setSelected] = useState<
-    { kind: "game"; game: Game } | { kind: "practice"; practice: Practice } | null
+    | { kind: "game"; game: Game }
+    | { kind: "practice"; practice: Practice }
+    | { kind: "busy"; busy: FieldBusy }
+    | null
   >(null);
   const [proposeDate, setProposeDate] = useState<string | null>(null);
 
@@ -2348,6 +2367,32 @@ function CalendarPanel({
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Field-busy blocks are an internal aid; load best-effort, never block the UI.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/field-busy", { cache: "no-store" });
+        const d = await res.json();
+        if (!cancelled) setBusy(Array.isArray(d.busy) ? d.busy : []);
+      } catch {
+        /* ignore — busy blocks are optional */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const busyByDate = useMemo(() => {
+    const m = new Map<string, FieldBusy[]>();
+    for (const b of busy) {
+      const k = b.date.slice(0, 10);
+      (m.get(k) ?? m.set(k, []).get(k)!).push(b);
+    }
+    return m;
+  }, [busy]);
 
   const practiceByDate = useMemo(() => {
     const m = new Map<string, Practice[]>();
@@ -2433,6 +2478,7 @@ function CalendarPanel({
         <span><span className="inline-block h-3 w-3 rounded-sm bg-emerald-700 align-middle"></span> Confirmed</span>
         <span><span className="inline-block h-3 w-3 rounded-sm border border-dashed border-amber-500 align-middle"></span> Proposed</span>
         <span><span className="inline-block h-3 w-3 rounded-sm bg-neutral-800 align-middle"></span> Cancelled</span>
+        <span><span className="inline-block h-3 w-3 rounded-sm border border-neutral-600 bg-neutral-800/60 align-middle"></span> Field busy (other org)</span>
       </div>
 
       {error && (
@@ -2446,8 +2492,10 @@ function CalendarPanel({
           cursor={cursor}
           gameByDate={gameByDate}
           practiceByDate={practiceByDate}
+          busyByDate={busyByDate}
           onGame={(g) => setSelected({ kind: "game", game: g })}
           onPractice={(p) => setSelected({ kind: "practice", practice: p })}
+          onBusy={(b) => setSelected({ kind: "busy", busy: b })}
           onEmptyDay={(d) => {
             setSelected(null);
             setProposeDate(d);
@@ -2457,13 +2505,18 @@ function CalendarPanel({
         <CalendarList
           gameByDate={gameByDate}
           practices={practices}
+          busy={busy}
           onGame={(g) => setSelected({ kind: "game", game: g })}
           onPractice={(p) => setSelected({ kind: "practice", practice: p })}
+          onBusy={(b) => setSelected({ kind: "busy", busy: b })}
         />
       )}
 
       {selected?.kind === "game" && (
         <GameDetail game={selected.game} onClose={() => setSelected(null)} />
+      )}
+      {selected?.kind === "busy" && (
+        <BusyDetail busy={selected.busy} onClose={() => setSelected(null)} />
       )}
       {selected?.kind === "practice" && (
         <PracticeDetail
@@ -2484,6 +2537,7 @@ function CalendarPanel({
         <ProposeForm
           date={proposeDate}
           coach={coach}
+          busy={busy}
           onClose={() => setProposeDate(null)}
           onSubmit={(form) => mutate("/api/practices", "POST", form)}
         />
@@ -2496,15 +2550,19 @@ function MonthGrid({
   cursor,
   gameByDate,
   practiceByDate,
+  busyByDate,
   onGame,
   onPractice,
+  onBusy,
   onEmptyDay,
 }: {
   cursor: Date;
   gameByDate: Map<string, Game[]>;
   practiceByDate: Map<string, Practice[]>;
+  busyByDate: Map<string, FieldBusy[]>;
   onGame: (g: Game) => void;
   onPractice: (p: Practice) => void;
+  onBusy: (b: FieldBusy) => void;
   onEmptyDay: (date: string) => void;
 }) {
   const year = cursor.getFullYear();
@@ -2530,7 +2588,8 @@ function MonthGrid({
           const date = ymd(new Date(year, month, day));
           const games = gameByDate.get(date) ?? [];
           const pracs = practiceByDate.get(date) ?? [];
-          const empty = games.length === 0 && pracs.length === 0;
+          const busies = busyByDate.get(date) ?? [];
+          const empty = games.length === 0 && pracs.length === 0 && busies.length === 0;
           return (
             <div key={i} className="min-h-[84px] rounded border border-neutral-800 bg-neutral-900 p-1">
               <div className="flex items-center justify-between">
@@ -2562,6 +2621,16 @@ function MonthGrid({
                     {p.start_time} {p.focus || "Practice"}
                   </button>
                 ))}
+                {busies.map((b, bi) => (
+                  <button
+                    key={`b${bi}`}
+                    onClick={() => onBusy(b)}
+                    title={b.label}
+                    className="block w-full truncate rounded border border-neutral-700 bg-neutral-800/60 px-1 py-0.5 text-left text-[10px] text-neutral-400"
+                  >
+                    🚫 {b.label}
+                  </button>
+                ))}
                 {empty && <span className="sr-only">No events</span>}
               </div>
             </div>
@@ -2577,11 +2646,15 @@ function CalendarList({
   practices,
   onGame,
   onPractice,
+  busy,
+  onBusy,
 }: {
   gameByDate: Map<string, Game[]>;
   practices: Practice[];
+  busy: FieldBusy[];
   onGame: (g: Game) => void;
   onPractice: (p: Practice) => void;
+  onBusy: (b: FieldBusy) => void;
 }) {
   type Row = { date: string; sort: string; el: React.ReactNode };
   const rows: Row[] = [];
@@ -2616,9 +2689,44 @@ function CalendarList({
       ),
     });
   }
+  for (const b of busy) {
+    const d = b.date.slice(0, 10);
+    rows.push({
+      date: d,
+      // sort key "2" → field-busy sits after our own events on the same day.
+      sort: d + " 2" + b.start_time,
+      el: (
+        <button
+          key={`busy-${b.id ?? d + b.start_time}`}
+          onClick={() => onBusy(b)}
+          className="block w-full truncate rounded border border-neutral-700 bg-neutral-800/60 px-3 py-2 text-left text-xs text-neutral-400"
+        >
+          🚫 {b.start_time}–{b.end_time} {b.label} · {b.location}
+        </button>
+      ),
+    });
+  }
   rows.sort((a, b) => a.sort.localeCompare(b.sort));
   if (rows.length === 0) return <p className="text-neutral-400">Nothing scheduled.</p>;
   return <div className="space-y-1">{rows.map((r) => r.el)}</div>;
+}
+
+function BusyDetail({ busy, onClose }: { busy: FieldBusy; onClose: () => void }) {
+  return (
+    <DetailCard title="Field busy (other org)" onClose={onClose}>
+      <p className="text-sm text-neutral-200">{busy.label}</p>
+      <p className="mt-1 text-sm text-neutral-400">
+        {formatWeek(busy.date.slice(0, 10))} · {busy.start_time}–{busy.end_time}
+      </p>
+      <p className="mt-1 text-sm text-neutral-400">{busy.location}</p>
+      {busy.source && (
+        <p className="mt-2 text-xs text-neutral-600">Source: {busy.source}</p>
+      )}
+      <p className="mt-2 text-xs text-neutral-600">
+        Internal scheduling note — not shown on the public site.
+      </p>
+    </DetailCard>
+  );
 }
 
 function GameDetail({ game, onClose }: { game: Game; onClose: () => void }) {
@@ -2763,11 +2871,13 @@ function TimeSelect({
 function ProposeForm({
   date,
   coach,
+  busy,
   onClose,
   onSubmit,
 }: {
   date: string;
   coach: string | null;
+  busy: FieldBusy[];
   onClose: () => void;
   onSubmit: (form: {
     date: string;
@@ -2796,6 +2906,14 @@ function ProposeForm({
   );
   // 24-hour "HH:MM" strings compare correctly lexicographically.
   const timeOrderOk = form.start_time < form.end_time;
+
+  // Soft overlap with another org's field-busy block at the same location.
+  const conflict = busy.find(
+    (b) =>
+      b.date.slice(0, 10) === form.date &&
+      b.location.trim().toLowerCase() === form.location.trim().toLowerCase() &&
+      timesOverlap(form.start_time, form.end_time, b.start_time, b.end_time),
+  );
 
   const submit = async () => {
     // Diagnostic: confirms the click reaches JS, with the exact form state.
@@ -2869,6 +2987,11 @@ function ProposeForm({
 
       {fieldsFilled && !timeOrderOk && (
         <p className="mt-2 text-xs text-amber-300">End time must be after start time.</p>
+      )}
+      {conflict && (
+        <p className="mt-2 rounded border border-amber-600/50 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-300">
+          ⚠ Field is in use by {conflict.label} from {conflict.start_time}–{conflict.end_time}. You can still propose; please confirm.
+        </p>
       )}
       {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
       {!coach && (
