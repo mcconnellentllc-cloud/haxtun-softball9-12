@@ -7,8 +7,16 @@ export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store" };
 
 export const GET = withErrorHandling(async () => {
-  const practices = await listPractices();
-  return NextResponse.json({ practices }, { headers: noStore });
+  // Before the Airtable `Practices` table exists, listing 404s. Treat that as
+  // "no practices yet" so the Calendar renders games-only cleanly rather than
+  // surfacing an error before setup is done.
+  try {
+    const practices = await listPractices();
+    return NextResponse.json({ practices }, { headers: noStore });
+  } catch (err) {
+    console.error("listPractices failed (table may not exist yet):", err);
+    return NextResponse.json({ practices: [] }, { headers: noStore });
+  }
 });
 
 export const POST = withErrorHandling(async (req: NextRequest) => {

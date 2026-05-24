@@ -52,3 +52,16 @@ creating it, paste the table ID and field IDs into the table below.
 The portal (Vercel) reads/writes the table with its existing
 `AIRTABLE_API_KEY` + `AIRTABLE_BASE_ID`; set `AIRTABLE_PRACTICES_TABLE` in
 Vercel too if you name the table anything other than `Practices`.
+
+## Limitation: confirmation is honor-system, not authenticated
+
+The portal logs in with a single **shared password**; "who you are" is just a
+name you pick on the device (stored in `localStorage`) and sent as the `x-coach`
+header. So `ProposedBy` and `Confirmations` record *the selected name*, not a
+verified identity — anyone with the password could pick any name. The
+"a different coach must confirm" rule is therefore an honor-system check.
+
+That's fine for the three coaches today (they know each other). If the team
+grows, or you ever need real accountability (audit trail of who proposed /
+confirmed / cancelled), the prerequisite is **per-coach authenticated logins**
+instead of the shared password — that's the architectural change to make first.
