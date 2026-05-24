@@ -20,6 +20,9 @@ export const SCHEDULE: Game[] = [
   { date: "2026-06-09", day: "Tue", opponent: "Grant", home: true, location: "Haxtun Baseball Field" },
   { date: "2026-06-16", day: "Tue", opponent: "Yuma", home: false, location: "Yuma, CO" },
   { date: "2026-06-18", day: "Thu", opponent: "Sidney", home: false, location: "Sidney, NE" },
+  { date: "2026-06-22", day: "Mon", opponent: "League Tournament", home: false, location: "Holyoke, CO" },
+  { date: "2026-06-23", day: "Tue", opponent: "League Tournament", home: false, location: "Holyoke, CO" },
+  { date: "2026-06-24", day: "Wed", opponent: "League Tournament", home: false, location: "Holyoke, CO" },
 ];
 
 // e.g. "Thu May 21 · at Holyoke"
