@@ -2851,7 +2851,11 @@ function ProposeForm({
           <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} className={field} />
         </label>
         <label className="text-xs text-neutral-400">Location
-          <input value={form.location} onChange={(e) => set("location", e.target.value)} className={field} />
+          <select value={form.location} onChange={(e) => set("location", e.target.value)} className={field}>
+            <option value="Haxtun Baseball Field">Haxtun Baseball Field</option>
+            <option value="Behind the School">Behind the School</option>
+            <option value="Little Gym at School">Little Gym at School</option>
+          </select>
         </label>
         <div className="text-xs text-neutral-400">Start
           <TimeSelect value={form.start_time} onChange={(v) => set("start_time", v)} />
