@@ -3009,7 +3009,7 @@ function StatsPanel({ players }: { players: Player[] }) {
 
       <StatTable
         title="Batting"
-        headers={["Rank", "#", "Player", "GP", "AB", "H", "RBI", "BB", "AVG", "OBP", "OPS", "Score"]}
+        headers={["Rank", "#", "Player", "GP", "AB", "H", "RBI", "BB", "K", "AVG", "OBP", "OPS", "Score"]}
         empty={batting.length === 0 ? "No batting stats yet. Updated after each game." : null}
         legend={[
           ["GP", "games played"],
@@ -3017,6 +3017,7 @@ function StatsPanel({ players }: { players: Player[] }) {
           ["H", "hits"],
           ["RBI", "runs batted in"],
           ["BB", "base on balls (walks)"],
+          ["K", "strikeouts"],
           ["AVG", "batting average"],
           ["OBP", "on-base percentage"],
           ["OPS", "on-base plus slugging"],
@@ -3030,6 +3031,7 @@ function StatsPanel({ players }: { players: Player[] }) {
             <StatCell>{statNum(row.h)}</StatCell>
             <StatCell>{statNum(row.rbi)}</StatCell>
             <StatCell>{statNum(row.bb)}</StatCell>
+            <StatCell>{statNum(row.so)}</StatCell>
             <StatCell>{String(row.avg ?? "—")}</StatCell>
             <StatCell>{String(row.obp ?? "—")}</StatCell>
             <StatCell>{String(row.ops ?? "—")}</StatCell>
