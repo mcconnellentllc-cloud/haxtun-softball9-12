@@ -2363,12 +2363,13 @@ function CalendarPanel({
     return m;
   }, []);
 
-  const mutate = async (path: string, method: string, body: unknown) => {
-    if (!coach) {
-      setError("Pick your name up top first.");
-      return;
-    }
-    setError(null);
+  // Returns null on success, or an error message the caller can surface.
+  const mutate = async (
+    path: string,
+    method: string,
+    body: unknown,
+  ): Promise<string | null> => {
+    if (!coach) return "Pick your name up top first.";
     try {
       const res = await fetch(path, {
         method,
@@ -2378,13 +2379,14 @@ function CalendarPanel({
       });
       if (!res.ok) {
         const j = await res.json().catch(() => null);
-        throw new Error(j?.error ?? `Request failed (${res.status})`);
+        return j?.error ?? `Request failed (${res.status})`;
       }
       setSelected(null);
       setProposeDate(null);
       await reload();
+      return null;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
+      return err instanceof Error ? err.message : "Request failed";
     }
   };
 
@@ -2468,12 +2470,14 @@ function CalendarPanel({
           practice={selected.practice}
           coach={coach}
           onClose={() => setSelected(null)}
-          onConfirm={(p) =>
-            mutate(`/api/practices/${p.recordId}`, "PATCH", { action: "confirm" })
-          }
-          onCancel={(p, reason) =>
-            mutate(`/api/practices/${p.recordId}`, "PATCH", { action: "cancel", reason })
-          }
+          onConfirm={async (p) => {
+            const e = await mutate(`/api/practices/${p.recordId}`, "PATCH", { action: "confirm" });
+            if (e) setError(e);
+          }}
+          onCancel={async (p, reason) => {
+            const e = await mutate(`/api/practices/${p.recordId}`, "PATCH", { action: "cancel", reason });
+            if (e) setError(e);
+          }}
         />
       )}
       {proposeDate != null && (
@@ -2709,6 +2713,53 @@ function PracticeDetail({
   );
 }
 
+// 12-hour time entry with an explicit AM/PM dropdown. Value in/out is a 24-hour
+// "HH:MM" string (matches Airtable StartTime/EndTime), so no freeform parsing.
+function TimeSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (hhmm24: string) => void;
+}) {
+  const [h, m] = value.split(":").map((n) => parseInt(n, 10));
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const mm = String(Number.isFinite(m) ? m : 0).padStart(2, "0");
+
+  const update = (nh12: number, nmm: string, nAmPm: string) => {
+    let h24 = nh12 % 12;
+    if (nAmPm === "PM") h24 += 12;
+    onChange(`${String(h24).padStart(2, "0")}:${nmm}`);
+  };
+
+  const hours = Array.from({ length: 12 }, (_, i) => i + 1);
+  const baseMins = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+  const mins = baseMins.includes(mm) ? baseMins : [...baseMins, mm].sort();
+  const sel =
+    "rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-red-600";
+
+  return (
+    <div className="mt-1 flex items-center gap-1">
+      <select className={sel} value={h12} onChange={(e) => update(Number(e.target.value), mm, ampm)} aria-label="Hour">
+        {hours.map((x) => (
+          <option key={x} value={x}>{x}</option>
+        ))}
+      </select>
+      <span className="text-neutral-500">:</span>
+      <select className={sel} value={mm} onChange={(e) => update(h12, e.target.value, ampm)} aria-label="Minute">
+        {mins.map((x) => (
+          <option key={x} value={x}>{x}</option>
+        ))}
+      </select>
+      <select className={sel} value={ampm} onChange={(e) => update(h12, mm, e.target.value)} aria-label="AM or PM">
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  );
+}
+
 function ProposeForm({
   date,
   coach,
@@ -2725,7 +2776,7 @@ function ProposeForm({
     location: string;
     focus: string;
     notes: string;
-  }) => void;
+  }) => Promise<string | null>;
 }) {
   const [form, setForm] = useState({
     date,
@@ -2735,15 +2786,38 @@ function ProposeForm({
     focus: "",
     notes: "",
   });
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const valid = form.date && form.start_time && form.end_time && form.location && form.focus.trim();
 
-  const field = "w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-red-600";
+  // Button only gates on the five visible required fields (Notes optional).
+  const fieldsFilled = Boolean(
+    form.date && form.start_time && form.end_time && form.location && form.focus.trim(),
+  );
+  // 24-hour "HH:MM" strings compare correctly lexicographically.
+  const timeOrderOk = form.start_time < form.end_time;
+
+  const submit = async () => {
+    setError(null);
+    if (!coach) {
+      setError("Pick your name up top first, then propose.");
+      return;
+    }
+    if (!timeOrderOk) {
+      setError("End time must be after start time.");
+      return;
+    }
+    setSubmitting(true);
+    const err = await onSubmit(form);
+    setSubmitting(false);
+    if (err) setError(err);
+    // On success the parent closes the form.
+  };
+
+  const field =
+    "w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-red-600";
   return (
     <DetailCard title="Propose a practice" onClose={onClose}>
-      {!coach && (
-        <p className="mb-2 text-xs text-amber-300">Pick your name up top first.</p>
-      )}
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-xs text-neutral-400">Date
           <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} className={field} />
@@ -2751,12 +2825,12 @@ function ProposeForm({
         <label className="text-xs text-neutral-400">Location
           <input value={form.location} onChange={(e) => set("location", e.target.value)} className={field} />
         </label>
-        <label className="text-xs text-neutral-400">Start
-          <input type="time" value={form.start_time} onChange={(e) => set("start_time", e.target.value)} className={field} />
-        </label>
-        <label className="text-xs text-neutral-400">End
-          <input type="time" value={form.end_time} onChange={(e) => set("end_time", e.target.value)} className={field} />
-        </label>
+        <div className="text-xs text-neutral-400">Start
+          <TimeSelect value={form.start_time} onChange={(v) => set("start_time", v)} />
+        </div>
+        <div className="text-xs text-neutral-400">End
+          <TimeSelect value={form.end_time} onChange={(v) => set("end_time", v)} />
+        </div>
         <label className="text-xs text-neutral-400 sm:col-span-2">Focus
           <input value={form.focus} onChange={(e) => set("focus", e.target.value)} placeholder="Hitting + baserunning" className={field} />
         </label>
@@ -2764,13 +2838,24 @@ function ProposeForm({
           <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} className={field} />
         </label>
       </div>
+
+      {fieldsFilled && !timeOrderOk && (
+        <p className="mt-2 text-xs text-amber-300">End time must be after start time.</p>
+      )}
+      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+      {!coach && (
+        <p className="mt-2 text-xs text-amber-300">
+          Pick your name up top so the proposal is recorded under you.
+        </p>
+      )}
+
       <div className="mt-3">
         <button
-          onClick={() => valid && coach && onSubmit(form)}
-          disabled={!valid || !coach}
+          onClick={submit}
+          disabled={!fieldsFilled || submitting}
           className="rounded bg-red-600 px-4 py-2 font-display text-sm tracking-wider text-white hover:bg-red-500 disabled:opacity-50"
         >
-          Propose
+          {submitting ? "Proposing…" : "Propose"}
         </button>
       </div>
     </DetailCard>
