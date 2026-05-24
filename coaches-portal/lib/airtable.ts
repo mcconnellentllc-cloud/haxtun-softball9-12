@@ -259,6 +259,9 @@ export async function createPractice(p: {
   const rec = await at<AirtableRecord>(tableUrl(practicesTable()), {
     method: "POST",
     body: JSON.stringify({
+      // typecast lets Airtable coerce/accept select options that differ only by
+      // case/whitespace instead of 422-ing the whole write.
+      typecast: true,
       fields: {
         Date: p.date,
         StartTime: p.start_time,
@@ -268,7 +271,8 @@ export async function createPractice(p: {
         Notes: p.notes ?? "",
         ProposedBy: p.proposed_by,
         Status: "proposed",
-        Confirmations: [],
+        // Confirmations (multi-select) is left empty by omission; it's set when
+        // a coach confirms. Sending [] can be finicky on create.
       },
     }),
   });
