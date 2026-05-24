@@ -2798,20 +2798,48 @@ function ProposeForm({
   const timeOrderOk = form.start_time < form.end_time;
 
   const submit = async () => {
+    // Diagnostic: confirms the click reaches JS, with the exact form state.
+    console.log("propose:clicked", {
+      coach,
+      date: form.date,
+      start: form.start_time,
+      end: form.end_time,
+      location: form.location,
+      focus: form.focus,
+    });
     setError(null);
+
+    // Validate on click (button is always clickable) so every click gives
+    // feedback — no more silent no-op.
+    const missing: string[] = [];
+    if (!form.date) missing.push("date");
+    if (!form.start_time) missing.push("start time");
+    if (!form.end_time) missing.push("end time");
+    if (!form.location.trim()) missing.push("location");
+    if (!form.focus.trim()) missing.push("focus");
+    if (missing.length) {
+      setError(`Please fill in: ${missing.join(", ")}.`);
+      return;
+    }
     if (!coach) {
       setError("Pick your name up top first, then propose.");
       return;
     }
-    if (!timeOrderOk) {
+    if (form.start_time >= form.end_time) {
       setError("End time must be after start time.");
       return;
     }
+
     setSubmitting(true);
-    const err = await onSubmit(form);
-    setSubmitting(false);
-    if (err) setError(err);
-    // On success the parent closes the form.
+    try {
+      const err = await onSubmit(form);
+      if (err) setError(err);
+      // On success the parent closes the form.
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong submitting.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const field =
@@ -2852,7 +2880,7 @@ function ProposeForm({
       <div className="mt-3">
         <button
           onClick={submit}
-          disabled={!fieldsFilled || submitting}
+          disabled={submitting}
           className="rounded bg-red-600 px-4 py-2 font-display text-sm tracking-wider text-white hover:bg-red-500 disabled:opacity-50"
         >
           {submitting ? "Proposing…" : "Propose"}
