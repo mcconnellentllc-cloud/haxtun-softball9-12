@@ -94,13 +94,35 @@ games:
     result: ""
     notes: "Final regular-season game"
 
+  - date: 2026-06-22
+    day: "Mon"
+    time: "TBD"
+    opponent: "League Tournament"
+    location: "Holyoke, CO"
+    home: false
+    result: ""
+    notes: "League tournament (Holyoke)"
+
+  - date: 2026-06-23
+    day: "Tue"
+    time: "TBD"
+    opponent: "League Tournament"
+    location: "Holyoke, CO"
+    home: false
+    result: ""
+    notes: "League tournament (Holyoke)"
+
+  - date: 2026-06-24
+    day: "Wed"
+    time: "TBD"
+    opponent: "League Tournament"
+    location: "Holyoke, CO"
+    home: false
+    result: ""
+    notes: "League tournament (Holyoke)"
+
 # Tournament + post-season
 postseason:
-  - date_range: "June 22-24, 2026"
-    event: "League Tournament"
-    location: "Holyoke, CO"
-    notes: "Bracket based on regular-season records. No time limit on Championship games."
-
   - date_range: "June 28, 2026"
     event: "All-Star Game"
     location: "Holyoke, CO"

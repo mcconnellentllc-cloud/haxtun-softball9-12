@@ -142,16 +142,11 @@ def vtimezone_block() -> list[str]:
 
 
 def game_event(g: dict, season: str, head_coach: str, dtstamp: str) -> list[str]:
-    if not g.get("time"):
-        return []
     if g.get("opponent") == "BYE":
         return []
     g_date = g["date"]
     if isinstance(g_date, str):
         g_date = datetime.strptime(g_date, "%Y-%m-%d").date()
-    hh, mm = parse_time_hhmm(g["time"])
-    start = datetime(g_date.year, g_date.month, g_date.day, hh, mm)
-    end = start + GAME_DURATION
     home = bool(g.get("home"))
     opponent = g["opponent"]
     summary = f"Bulldogs {'vs' if home else '@'} {opponent}"
@@ -163,6 +158,34 @@ def game_event(g: dict, season: str, head_coach: str, dtstamp: str) -> list[str]
         desc_parts.append(f"Coach {head_coach}")
     description = " | ".join(desc_parts)
     uid = stable_uid(f"game-{g_date.isoformat()}-{opponent}-{home}")
+
+    time = (g.get("time") or "").strip()
+    # No set time yet (e.g. a TBD tournament day) → all-day event. The 2-hour
+    # reminder needs a clock time, so all-day gets only the 1-day reminder.
+    if not time or time.upper() == "TBD":
+        end_excl = g_date + timedelta(days=1)
+        return [
+            "BEGIN:VEVENT",
+            f"UID:{uid}",
+            f"DTSTAMP:{dtstamp}",
+            f"DTSTART;VALUE=DATE:{g_date.strftime('%Y%m%d')}",
+            f"DTEND;VALUE=DATE:{end_excl.strftime('%Y%m%d')}",
+            f"SUMMARY:{escape_text(summary)}",
+            f"LOCATION:{escape_text(location)}",
+            f"DESCRIPTION:{escape_text(description)}",
+            "STATUS:CONFIRMED",
+            "TRANSP:TRANSPARENT",
+            "BEGIN:VALARM",
+            "ACTION:DISPLAY",
+            f"DESCRIPTION:{escape_text(summary)} - 1 day reminder",
+            "TRIGGER:-P1D",
+            "END:VALARM",
+            "END:VEVENT",
+        ]
+
+    hh, mm = parse_time_hhmm(time)
+    start = datetime(g_date.year, g_date.month, g_date.day, hh, mm)
+    end = start + GAME_DURATION
     return [
         "BEGIN:VEVENT",
         f"UID:{uid}",
