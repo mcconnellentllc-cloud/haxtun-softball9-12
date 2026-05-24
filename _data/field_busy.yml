@@ -4,18 +4,17 @@
 #
 # Privacy: labels reference orgs/teams/divisions only — no coach or player names.
 #
-# DRAFT (2026-05-24): built from the text in the task. The two source images
-# (practice FB post, league game grid) did NOT come through, so:
-#   - Practices below are transcribed from the listed dates/times — verify.
-#   - GAME blocks are scaffolded but COMMENTED OUT: the game grid image is
-#     needed to know which dates Haxtun Red/Black HOST. Uncomment the real ones.
+# Practices, games, and All-Stars transcribed from the Haxtun Summer Ball FB
+# post and the 2026 Baseball League schedule (host dates verified with Kyle).
+# Games block the field 4–9:30 PM only on Haxtun-hosted dates (June 10 is away,
+# not blocked). The June 25–27 tournament is at Holyoke, so not blocked.
 
 # ── Haxtun Summer Ball practices ──────────────────────────────────────
 - id: busy-2026-05-19-school
   date: 2026-05-19
   start_time: "16:00"
   end_time: "18:00"
-  location: "Haxtun School"
+  location: "Behind the School"
   label: "Haxtun Summer Ball — Practice (PW/LL)"
   source: "Haxtun Summer Ball FB post"
 - id: busy-2026-05-22-field
@@ -89,28 +88,9 @@
   label: "Haxtun Summer Ball — Practice"
   source: "Haxtun Summer Ball FB post"
 
-# ── Tournament & All-Stars (block conservatively; verify) ─────────────
-- id: busy-2026-06-25-tourney
-  date: 2026-06-25
-  start_time: "08:00"
-  end_time: "21:30"
-  location: "Haxtun Baseball Field"
-  label: "League Tournament (played at Holyoke — field may be free)"
-  source: "2026 Baseball League schedule"
-- id: busy-2026-06-26-tourney
-  date: 2026-06-26
-  start_time: "08:00"
-  end_time: "21:30"
-  location: "Haxtun Baseball Field"
-  label: "League Tournament (played at Holyoke — field may be free)"
-  source: "2026 Baseball League schedule"
-- id: busy-2026-06-27-tourney
-  date: 2026-06-27
-  start_time: "08:00"
-  end_time: "21:30"
-  location: "Haxtun Baseball Field"
-  label: "League Tournament (played at Holyoke — field may be free)"
-  source: "2026 Baseball League schedule"
+# ── All-Stars ─────────────────────────────────────────────────────────
+# June 25–27 tournament is played at Holyoke (Kyle verified) — the Haxtun
+# field is free those days, so it is intentionally NOT blocked.
 - id: busy-2026-06-28-allstars
   date: 2026-06-28
   start_time: "08:00"
@@ -119,18 +99,79 @@
   label: "All-Star Game (location TBD)"
   source: "2026 Baseball League schedule"
 
-# ── GAME BLOCKS — DRAFT, NOT ENABLED ──────────────────────────────────
-# The league game grid image wasn't received, so host (home/away) is unknown.
-# Each Haxtun-HOSTED date blocks the field 4:00–9:30 PM (covers PW/LL/BR start
-# times 4:30/6:30/7:30 + buffer). Uncomment ONLY the dates Haxtun Red or Black
-# actually host. Candidate game dates from the task text:
-# 2026-05-27, 2026-05-29, 2026-06-01, 2026-06-03, 2026-06-05, 2026-06-08,
-# 2026-06-10, 2026-06-12, 2026-06-15, 2026-06-17, 2026-06-19 (makeup).
-#
-# - id: busy-2026-05-27-game
-#   date: 2026-05-27
-#   start_time: "16:00"
-#   end_time: "21:30"
-#   location: "Haxtun Baseball Field"
-#   label: "Babe Ruth League Game (Haxtun Red/Black)"
-#   source: "2026 Baseball League schedule"
+# ── Haxtun Summer Ball league games — Haxtun-HOSTED (field in use) ────
+# Host dates extracted from the 2026 Baseball League schedule ("Visitor at
+# Host"; blocked when Haxtun Red or Black is the host). Each blocks the field
+# 4:00–9:30 PM (covers PW/LL/BR starts 4:30/6:30/7:30 + buffer). June 10 is
+# away-only and intentionally NOT blocked.
+- id: busy-2026-05-27-game
+  date: 2026-05-27
+  start_time: "16:00"
+  end_time: "21:30"
+  location: "Haxtun Baseball Field"
+  label: "Haxtun Summer Ball — Game (PW/LL/BR)"
+  source: "2026 Baseball League schedule"
+- id: busy-2026-05-29-game
+  date: 2026-05-29
+  start_time: "16:00"
+  end_time: "21:30"
+  location: "Haxtun Baseball Field"
+  label: "Haxtun Summer Ball — Game (PW/LL/BR)"
+  source: "2026 Baseball League schedule"
+- id: busy-2026-06-01-game
+  date: 2026-06-01
+  start_time: "16:00"
+  end_time: "21:30"
+  location: "Haxtun Baseball Field"
+  label: "Haxtun Summer Ball — Game (PW/LL/BR)"
+  source: "2026 Baseball League schedule"
+- id: busy-2026-06-03-game
+  date: 2026-06-03
+  start_time: "16:00"
+  end_time: "21:30"
+  location: "Haxtun Baseball Field"
+  label: "Haxtun Summer Ball — Game (PW/LL/BR)"
+  source: "2026 Baseball League schedule"
+- id: busy-2026-06-05-game
+  date: 2026-06-05
+  start_time: "16:00"
+  end_time: "21:30"
+  location: "Haxtun Baseball Field"
+  label: "Haxtun Summer Ball — Game (PW/LL/BR)"
+  source: "2026 Baseball League schedule"
+- id: busy-2026-06-08-game
+  date: 2026-06-08
+  start_time: "16:00"
+  end_time: "21:30"
+  location: "Haxtun Baseball Field"
+  label: "Haxtun Summer Ball — Game (PW/LL/BR)"
+  source: "2026 Baseball League schedule"
+- id: busy-2026-06-12-game
+  date: 2026-06-12
+  start_time: "16:00"
+  end_time: "21:30"
+  location: "Haxtun Baseball Field"
+  label: "Haxtun Summer Ball — Game (PW/LL/BR)"
+  source: "2026 Baseball League schedule"
+- id: busy-2026-06-15-game
+  date: 2026-06-15
+  start_time: "16:00"
+  end_time: "21:30"
+  location: "Haxtun Baseball Field"
+  label: "Haxtun Summer Ball — Game (PW/LL/BR)"
+  source: "2026 Baseball League schedule"
+- id: busy-2026-06-17-game
+  date: 2026-06-17
+  start_time: "16:00"
+  end_time: "21:30"
+  location: "Haxtun Baseball Field"
+  label: "Haxtun Summer Ball — Game (PW/LL/BR)"
+  source: "2026 Baseball League schedule"
+- id: busy-2026-06-19-makeup
+  date: 2026-06-19
+  start_time: "16:00"
+  end_time: "21:30"
+  location: "Haxtun Baseball Field"
+  label: "Haxtun Summer Ball — Makeup Day (field may be in use)"
+  source: "2026 Baseball League schedule"
+
