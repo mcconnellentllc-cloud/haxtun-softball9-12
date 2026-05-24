@@ -2327,6 +2327,22 @@ function eventChipCls(kind: "game" | Practice["status"]): string {
   }
 }
 
+// Practice-location accent colors. Keep in sync with _data/locations.yml
+// (the public /calendar/) and the Propose-form Location dropdown.
+const LOCATION_COLORS: Record<string, string> = {
+  "Haxtun Baseball Field": "#3b82f6",
+  "Behind the School": "#f97316",
+  "Little Gym at School": "#a855f7",
+};
+function locationColor(loc: string | undefined): string | undefined {
+  return loc ? LOCATION_COLORS[loc.trim()] : undefined;
+}
+// A left accent stripe layered on top of the status color, by location.
+function locationAccent(loc: string | undefined): React.CSSProperties {
+  const c = locationColor(loc);
+  return c ? { borderLeft: `4px solid ${c}` } : {};
+}
+
 function CalendarPanel({
   coach,
   onChooseCoach,
@@ -2480,6 +2496,18 @@ function CalendarPanel({
         <span><span className="inline-block h-3 w-3 rounded-sm bg-neutral-800 align-middle"></span> Cancelled</span>
         <span><span className="inline-block h-3 w-3 rounded-sm border border-neutral-600 bg-neutral-800/60 align-middle"></span> Field busy (other org)</span>
       </div>
+      <div className="flex flex-wrap gap-3 text-xs text-neutral-400">
+        <span className="text-neutral-500">Practice location:</span>
+        {Object.entries(LOCATION_COLORS).map(([name, color]) => (
+          <span key={name}>
+            <span
+              className="inline-block h-3 w-3 rounded-sm align-middle"
+              style={{ background: color }}
+            />{" "}
+            {name}
+          </span>
+        ))}
+      </div>
 
       {error && (
         <div className="rounded border border-red-900 bg-red-950/40 px-4 py-2 text-sm text-red-300">
@@ -2616,6 +2644,7 @@ function MonthGrid({
                   <button
                     key={p.recordId}
                     onClick={() => onPractice(p)}
+                    style={locationAccent(p.location)}
                     className={"block w-full truncate rounded px-1 py-0.5 text-left text-[11px] " + eventChipCls(p.status)}
                   >
                     {p.start_time} {p.focus || "Practice"}
@@ -2681,6 +2710,7 @@ function CalendarList({
         <button
           key={p.recordId}
           onClick={() => onPractice(p)}
+          style={locationAccent(p.location)}
           className={"block w-full rounded px-3 py-2 text-left text-sm " + eventChipCls(p.status)}
         >
           {p.start_time} Practice — {p.focus || "TBD"} · {p.location}
@@ -2768,7 +2798,15 @@ function PracticeDetail({
       <p className="text-sm text-neutral-300">
         {formatWeek(p.date.slice(0, 10))} · {p.start_time}–{p.end_time}
       </p>
-      <p className="mt-1 text-sm text-neutral-400">{p.location}</p>
+      <p className="mt-1 text-sm text-neutral-400">
+        {locationColor(p.location) && (
+          <span
+            className="mr-1.5 inline-block h-3 w-3 rounded-sm align-middle"
+            style={{ background: locationColor(p.location) }}
+          />
+        )}
+        {p.location}
+      </p>
       <p className="mt-2 text-xs text-neutral-500">
         Status: <span className="text-neutral-300">{p.status}</span> · Proposed by{" "}
         <span className="text-neutral-300">{p.proposed_by}</span>

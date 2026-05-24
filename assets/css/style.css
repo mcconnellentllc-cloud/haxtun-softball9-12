@@ -562,6 +562,22 @@ h3 { font-size: 1.4rem; margin-top: 1.75rem; }
 .site-footer__legal p { margin: 0; }
 
 /* ====================== Calendar ====================== */
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1rem;
+  font-size: .85rem;
+  color: var(--muted);
+}
+.cal-legend__dot {
+  display: inline-block;
+  width: .85rem;
+  height: .85rem;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-right: .35rem;
+}
 .cal { margin: 1.5rem 0; }
 .cal__month {
   font-size: 1.5rem;

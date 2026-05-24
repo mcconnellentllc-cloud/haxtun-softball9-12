@@ -14,6 +14,10 @@ permalink: /calendar/
 {%- assign sorted = list | sort -%}
 {%- assign current_month = "" -%}
 
+<p class="cal-legend">
+{% for l in site.data.locations %}<span class="cal-legend__item"><span class="cal-legend__dot" style="background:{{ l.color }}"></span>{{ l.name }}</span>{% endfor %}
+</p>
+
 <div class="cal">
 {% for row in sorted %}
   {%- assign parts = row | split: "~" -%}
@@ -22,12 +26,17 @@ permalink: /calendar/
   {%- assign type = parts[2] -%}
   {%- assign title = parts[3] -%}
   {%- assign loc = parts[4] -%}
+  {%- assign accent = "" -%}
+  {%- if type == "Practice" -%}
+    {%- assign m = site.data.locations | where: "name", loc | first -%}
+    {%- if m -%}{%- assign accent = m.color -%}{%- endif -%}
+  {%- endif -%}
   {%- assign month = d | date: "%Y-%m" -%}
   {%- if month != current_month -%}
     {%- assign current_month = month -%}
   <h2 class="cal__month">{{ d | date: "%B %Y" }}</h2>
   {%- endif -%}
-  <div class="cal-entry cal-entry--{{ type | downcase }}">
+  <div class="cal-entry cal-entry--{{ type | downcase }}"{% if accent != "" %} style="border-left-color:{{ accent }}"{% endif %}>
     <div class="cal-entry__date">
       <span class="cal-entry__dow">{{ d | date: "%a" }}</span>
       <span class="cal-entry__day">{{ d | date: "%-d" }}</span>
