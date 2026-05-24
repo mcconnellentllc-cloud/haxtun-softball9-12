@@ -1,11 +1,12 @@
 // Haxtun Bulldogs PWA service worker
 // Strategy: network-first with cache fallback. Offline-friendly.
 
-const CACHE = 'bulldogs-v2';
+const CACHE = 'bulldogs-v3';
 const BASE = '/haxtun-softball9-12';
 const PRECACHE = [
   BASE + '/',
   BASE + '/schedule/',
+  BASE + '/calendar/',
   BASE + '/roster/',
   BASE + '/league-rules/',
   BASE + '/nfhs-rules/',

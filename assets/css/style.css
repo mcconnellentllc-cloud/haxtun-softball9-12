@@ -561,6 +561,60 @@ h3 { font-size: 1.4rem; margin-top: 1.75rem; }
 }
 .site-footer__legal p { margin: 0; }
 
+/* ====================== Calendar ====================== */
+.cal { margin: 1.5rem 0; }
+.cal__month {
+  font-size: 1.5rem;
+  margin: 2rem 0 .75rem;
+  padding-bottom: .35rem;
+  border-bottom: 2px solid var(--red);
+}
+.cal__month:first-child { margin-top: 0; }
+.cal-entry {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: .9rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--muted);
+  border-radius: 4px;
+  margin-bottom: .5rem;
+  background: #fff;
+}
+.cal-entry--game { border-left-color: var(--red); }
+.cal-entry--practice { border-left-color: #1a8f3c; }
+.cal-entry__date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 48px;
+  flex: none;
+}
+.cal-entry__dow {
+  font-size: .7rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cal-entry__day {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--black);
+}
+.cal-entry__main { min-width: 0; }
+.cal-entry__title {
+  font-weight: 700;
+  margin-left: .5rem;
+}
+.cal-entry__meta {
+  color: var(--muted);
+  font-size: .9rem;
+  margin-top: .15rem;
+}
+.tag--game { background: var(--red); color: #fff; }
+.tag--practice { background: #1a8f3c; color: #fff; }
+
 /* ====================== Drills ====================== */
 .skill-nav {
   display: flex;

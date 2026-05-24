@@ -55,13 +55,14 @@ const COACHES = ["Emily", "Jordan", "Kyle"] as const;
 const INNINGS = 5;
 const BATTING_SLOTS = 12;
 const SLOTS = Array.from({ length: BATTING_SLOTS }, (_, i) => String(i + 1));
-const TABS = ["roster", "teams", "depth", "compare", "plan", "stats"] as const;
+const TABS = ["roster", "teams", "depth", "calendar", "compare", "plan", "stats"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   roster: "Roster",
   teams: "Teams",
   depth: "Depth Chart",
+  calendar: "Calendar",
   compare: "Propose",
   stats: "Stats",
   plan: "Game Plan",
@@ -441,6 +442,8 @@ export default function Home() {
               saveCoachDepths({ ...coachDepths, [name]: next })
             }
           />
+        ) : tab === "calendar" ? (
+          <CalendarPanel coach={coach} onChooseCoach={chooseCoach} />
         ) : tab === "compare" ? (
           <ComparePanel
             players={players}
@@ -2270,6 +2273,529 @@ function GamePlanPanel({
         }
       />
     </section>
+  );
+}
+
+/* ---------------------------- Calendar ---------------------------- */
+
+type Practice = {
+  recordId: string;
+  id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  focus: string;
+  notes: string;
+  proposed_by: string;
+  status: "proposed" | "confirmed" | "cancelled";
+  confirmations: string[];
+};
+
+function ymd(d: Date): string {
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+// Tailwind classes per event kind/status (matches the public color scheme).
+function eventChipCls(kind: "game" | Practice["status"]): string {
+  switch (kind) {
+    case "game":
+      return "bg-red-600 text-white";
+    case "confirmed":
+      return "bg-emerald-700 text-white";
+    case "proposed":
+      return "border border-dashed border-amber-500 bg-amber-500/10 text-amber-300";
+    case "cancelled":
+      return "bg-neutral-800 text-neutral-500 line-through";
+  }
+}
+
+function CalendarPanel({
+  coach,
+  onChooseCoach,
+}: {
+  coach: string | null;
+  onChooseCoach: (name: string) => void;
+}) {
+  const [practices, setPractices] = useState<Practice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<"month" | "list">("month");
+  const [cursor, setCursor] = useState(() => {
+    const d = new Date(`${defaultGameDate()}T00:00:00`);
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const [selected, setSelected] = useState<
+    { kind: "game"; game: Game } | { kind: "practice"; practice: Practice } | null
+  >(null);
+  const [proposeDate, setProposeDate] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      const res = await fetch("/api/practices", { cache: "no-store" });
+      if (!res.ok) throw new Error(`Practices load failed (${res.status})`);
+      const d = await res.json();
+      setPractices(Array.isArray(d.practices) ? d.practices : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load practices");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const practiceByDate = useMemo(() => {
+    const m = new Map<string, Practice[]>();
+    for (const p of practices) {
+      const k = p.date.slice(0, 10);
+      (m.get(k) ?? m.set(k, []).get(k)!).push(p);
+    }
+    return m;
+  }, [practices]);
+  const gameByDate = useMemo(() => {
+    const m = new Map<string, Game[]>();
+    for (const g of SCHEDULE) (m.get(g.date) ?? m.set(g.date, []).get(g.date)!).push(g);
+    return m;
+  }, []);
+
+  const mutate = async (path: string, method: string, body: unknown) => {
+    if (!coach) {
+      setError("Pick your name up top first.");
+      return;
+    }
+    setError(null);
+    try {
+      const res = await fetch(path, {
+        method,
+        headers: { "Content-Type": "application/json", "x-coach": coach },
+        body: JSON.stringify(body),
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => null);
+        throw new Error(j?.error ?? `Request failed (${res.status})`);
+      }
+      setSelected(null);
+      setProposeDate(null);
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed");
+    }
+  };
+
+  if (loading) return <p className="text-neutral-400">Loading…</p>;
+
+  return (
+    <section className="space-y-4">
+      <CoachSelect coach={coach} onChoose={onChooseCoach} />
+
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {(["month", "list"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={
+                "rounded px-3 py-1.5 font-display text-sm tracking-wider transition-colors " +
+                (view === v
+                  ? "bg-red-600 text-white"
+                  : "border border-neutral-700 bg-black/40 text-neutral-300 hover:border-red-600")
+              }
+            >
+              {v === "month" ? "Month" : "List"}
+            </button>
+          ))}
+        </div>
+        {view === "month" && (
+          <div className="flex items-center gap-2">
+            <IconBtn label="Previous month" onClick={() => setCursor((c) => new Date(c.getFullYear(), c.getMonth() - 1, 1))}>
+              ←
+            </IconBtn>
+            <span className="min-w-[8rem] text-center font-display text-lg tracking-wider text-neutral-100">
+              {cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+            </span>
+            <IconBtn label="Next month" onClick={() => setCursor((c) => new Date(c.getFullYear(), c.getMonth() + 1, 1))}>
+              →
+            </IconBtn>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-3 text-xs text-neutral-400">
+        <span><span className="inline-block h-3 w-3 rounded-sm bg-red-600 align-middle"></span> Game</span>
+        <span><span className="inline-block h-3 w-3 rounded-sm bg-emerald-700 align-middle"></span> Confirmed</span>
+        <span><span className="inline-block h-3 w-3 rounded-sm border border-dashed border-amber-500 align-middle"></span> Proposed</span>
+        <span><span className="inline-block h-3 w-3 rounded-sm bg-neutral-800 align-middle"></span> Cancelled</span>
+      </div>
+
+      {error && (
+        <div className="rounded border border-red-900 bg-red-950/40 px-4 py-2 text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
+      {view === "month" ? (
+        <MonthGrid
+          cursor={cursor}
+          gameByDate={gameByDate}
+          practiceByDate={practiceByDate}
+          onGame={(g) => setSelected({ kind: "game", game: g })}
+          onPractice={(p) => setSelected({ kind: "practice", practice: p })}
+          onEmptyDay={(d) => {
+            setSelected(null);
+            setProposeDate(d);
+          }}
+        />
+      ) : (
+        <CalendarList
+          gameByDate={gameByDate}
+          practices={practices}
+          onGame={(g) => setSelected({ kind: "game", game: g })}
+          onPractice={(p) => setSelected({ kind: "practice", practice: p })}
+        />
+      )}
+
+      {selected?.kind === "game" && (
+        <GameDetail game={selected.game} onClose={() => setSelected(null)} />
+      )}
+      {selected?.kind === "practice" && (
+        <PracticeDetail
+          practice={selected.practice}
+          coach={coach}
+          onClose={() => setSelected(null)}
+          onConfirm={(p) =>
+            mutate(`/api/practices/${p.recordId}`, "PATCH", { action: "confirm" })
+          }
+          onCancel={(p, reason) =>
+            mutate(`/api/practices/${p.recordId}`, "PATCH", { action: "cancel", reason })
+          }
+        />
+      )}
+      {proposeDate != null && (
+        <ProposeForm
+          date={proposeDate}
+          coach={coach}
+          onClose={() => setProposeDate(null)}
+          onSubmit={(form) => mutate("/api/practices", "POST", form)}
+        />
+      )}
+    </section>
+  );
+}
+
+function MonthGrid({
+  cursor,
+  gameByDate,
+  practiceByDate,
+  onGame,
+  onPractice,
+  onEmptyDay,
+}: {
+  cursor: Date;
+  gameByDate: Map<string, Game[]>;
+  practiceByDate: Map<string, Practice[]>;
+  onGame: (g: Game) => void;
+  onPractice: (p: Practice) => void;
+  onEmptyDay: (date: string) => void;
+}) {
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const lead = new Date(year, month, 1).getDay();
+  const days = new Date(year, month + 1, 0).getDate();
+  const cells: (number | null)[] = [
+    ...Array.from({ length: lead }, () => null),
+    ...Array.from({ length: days }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="grid min-w-[640px] grid-cols-7 gap-1">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+          <div key={d} className="px-1 py-1 text-center font-display text-xs tracking-wider text-neutral-500">
+            {d}
+          </div>
+        ))}
+        {cells.map((day, i) => {
+          if (day == null) return <div key={i} className="min-h-[84px] rounded bg-transparent" />;
+          const date = ymd(new Date(year, month, day));
+          const games = gameByDate.get(date) ?? [];
+          const pracs = practiceByDate.get(date) ?? [];
+          const empty = games.length === 0 && pracs.length === 0;
+          return (
+            <div key={i} className="min-h-[84px] rounded border border-neutral-800 bg-neutral-900 p-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-neutral-500">{day}</span>
+                <button
+                  onClick={() => onEmptyDay(date)}
+                  title="Propose a practice"
+                  className="h-4 w-4 rounded text-xs leading-none text-neutral-600 hover:bg-neutral-700 hover:text-white"
+                >
+                  +
+                </button>
+              </div>
+              <div className="mt-1 space-y-1">
+                {games.map((g, gi) => (
+                  <button
+                    key={`g${gi}`}
+                    onClick={() => onGame(g)}
+                    className={"block w-full truncate rounded px-1 py-0.5 text-left text-[11px] " + eventChipCls("game")}
+                  >
+                    {g.home ? "vs" : "@"} {g.opponent}
+                  </button>
+                ))}
+                {pracs.map((p) => (
+                  <button
+                    key={p.recordId}
+                    onClick={() => onPractice(p)}
+                    className={"block w-full truncate rounded px-1 py-0.5 text-left text-[11px] " + eventChipCls(p.status)}
+                  >
+                    {p.start_time} {p.focus || "Practice"}
+                  </button>
+                ))}
+                {empty && <span className="sr-only">No events</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CalendarList({
+  gameByDate,
+  practices,
+  onGame,
+  onPractice,
+}: {
+  gameByDate: Map<string, Game[]>;
+  practices: Practice[];
+  onGame: (g: Game) => void;
+  onPractice: (p: Practice) => void;
+}) {
+  type Row = { date: string; sort: string; el: React.ReactNode };
+  const rows: Row[] = [];
+  for (const g of SCHEDULE) {
+    rows.push({
+      date: g.date,
+      sort: g.date + " 0",
+      el: (
+        <button
+          key={`g-${g.date}-${g.opponent}`}
+          onClick={() => onGame(g)}
+          className={"block w-full rounded px-3 py-2 text-left text-sm " + eventChipCls("game")}
+        >
+          {gameLabel(g)} · {g.location}
+        </button>
+      ),
+    });
+  }
+  for (const p of practices) {
+    rows.push({
+      date: p.date.slice(0, 10),
+      sort: p.date.slice(0, 10) + " 1" + p.start_time,
+      el: (
+        <button
+          key={p.recordId}
+          onClick={() => onPractice(p)}
+          className={"block w-full rounded px-3 py-2 text-left text-sm " + eventChipCls(p.status)}
+        >
+          {p.start_time} Practice — {p.focus || "TBD"} · {p.location}
+          {p.status !== "confirmed" ? ` (${p.status})` : ""}
+        </button>
+      ),
+    });
+  }
+  rows.sort((a, b) => a.sort.localeCompare(b.sort));
+  if (rows.length === 0) return <p className="text-neutral-400">Nothing scheduled.</p>;
+  return <div className="space-y-1">{rows.map((r) => r.el)}</div>;
+}
+
+function GameDetail({ game, onClose }: { game: Game; onClose: () => void }) {
+  return (
+    <DetailCard title={`${game.home ? "vs" : "@"} ${game.opponent}`} onClose={onClose}>
+      <p className="text-sm text-neutral-300">{gameLabel(game)}</p>
+      <p className="mt-1 text-sm text-neutral-400">{game.location}</p>
+      <p className="mt-1 text-xs text-neutral-600">Games are read-only (from the season schedule).</p>
+    </DetailCard>
+  );
+}
+
+function PracticeDetail({
+  practice: p,
+  coach,
+  onClose,
+  onConfirm,
+  onCancel,
+}: {
+  practice: Practice;
+  coach: string | null;
+  onClose: () => void;
+  onConfirm: (p: Practice) => void;
+  onCancel: (p: Practice, reason: string) => void;
+}) {
+  const [cancelling, setCancelling] = useState(false);
+  const [reason, setReason] = useState("");
+  const canConfirm =
+    p.status === "proposed" &&
+    !!coach &&
+    coach !== p.proposed_by &&
+    !p.confirmations.includes(coach);
+
+  return (
+    <DetailCard
+      title={`Practice — ${p.focus || "TBD"}`}
+      onClose={onClose}
+    >
+      <p className="text-sm text-neutral-300">
+        {formatWeek(p.date.slice(0, 10))} · {p.start_time}–{p.end_time}
+      </p>
+      <p className="mt-1 text-sm text-neutral-400">{p.location}</p>
+      <p className="mt-2 text-xs text-neutral-500">
+        Status: <span className="text-neutral-300">{p.status}</span> · Proposed by{" "}
+        <span className="text-neutral-300">{p.proposed_by}</span>
+        {p.confirmations.length > 0 && (
+          <> · Confirmed by {p.confirmations.join(", ")}</>
+        )}
+      </p>
+      {p.notes && <p className="mt-2 text-sm text-neutral-400">{p.notes}</p>}
+
+      {p.status !== "cancelled" && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {canConfirm && (
+            <button
+              onClick={() => onConfirm(p)}
+              className="rounded bg-emerald-700 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-emerald-600"
+            >
+              Confirm
+            </button>
+          )}
+          {!cancelling ? (
+            <button
+              onClick={() => setCancelling(true)}
+              className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 text-sm tracking-wider text-neutral-200 hover:border-red-600"
+            >
+              Cancel…
+            </button>
+          ) : (
+            <div className="flex w-full flex-wrap items-center gap-2">
+              <input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Reason (required)"
+                className="flex-1 rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-red-600"
+              />
+              <button
+                onClick={() => reason.trim() && onCancel(p, reason.trim())}
+                disabled={!reason.trim()}
+                className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500 disabled:opacity-50"
+              >
+                Confirm cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      {p.status === "proposed" && !canConfirm && coach === p.proposed_by && (
+        <p className="mt-2 text-xs text-neutral-600">You proposed this — another coach must confirm it.</p>
+      )}
+    </DetailCard>
+  );
+}
+
+function ProposeForm({
+  date,
+  coach,
+  onClose,
+  onSubmit,
+}: {
+  date: string;
+  coach: string | null;
+  onClose: () => void;
+  onSubmit: (form: {
+    date: string;
+    start_time: string;
+    end_time: string;
+    location: string;
+    focus: string;
+    notes: string;
+  }) => void;
+}) {
+  const [form, setForm] = useState({
+    date,
+    start_time: "17:30",
+    end_time: "19:00",
+    location: "Haxtun Baseball Field",
+    focus: "",
+    notes: "",
+  });
+  const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const valid = form.date && form.start_time && form.end_time && form.location && form.focus.trim();
+
+  const field = "w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-red-600";
+  return (
+    <DetailCard title="Propose a practice" onClose={onClose}>
+      {!coach && (
+        <p className="mb-2 text-xs text-amber-300">Pick your name up top first.</p>
+      )}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs text-neutral-400">Date
+          <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} className={field} />
+        </label>
+        <label className="text-xs text-neutral-400">Location
+          <input value={form.location} onChange={(e) => set("location", e.target.value)} className={field} />
+        </label>
+        <label className="text-xs text-neutral-400">Start
+          <input type="time" value={form.start_time} onChange={(e) => set("start_time", e.target.value)} className={field} />
+        </label>
+        <label className="text-xs text-neutral-400">End
+          <input type="time" value={form.end_time} onChange={(e) => set("end_time", e.target.value)} className={field} />
+        </label>
+        <label className="text-xs text-neutral-400 sm:col-span-2">Focus
+          <input value={form.focus} onChange={(e) => set("focus", e.target.value)} placeholder="Hitting + baserunning" className={field} />
+        </label>
+        <label className="text-xs text-neutral-400 sm:col-span-2">Notes
+          <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} className={field} />
+        </label>
+      </div>
+      <div className="mt-3">
+        <button
+          onClick={() => valid && coach && onSubmit(form)}
+          disabled={!valid || !coach}
+          className="rounded bg-red-600 px-4 py-2 font-display text-sm tracking-wider text-white hover:bg-red-500 disabled:opacity-50"
+        >
+          Propose
+        </button>
+      </div>
+    </DetailCard>
+  );
+}
+
+function DetailCard({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded border border-neutral-700 bg-neutral-900 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-display text-xl tracking-wider text-neutral-100">{title}</h3>
+        <button onClick={onClose} aria-label="Close" className="text-neutral-400 hover:text-white">
+          ✕
+        </button>
+      </div>
+      <div className="mt-2">{children}</div>
+    </div>
   );
 }
 

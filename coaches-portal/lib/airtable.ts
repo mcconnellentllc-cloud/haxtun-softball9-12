@@ -184,6 +184,116 @@ export async function setStateValue(
   }
 }
 
+/* --------------------------- Practices ---------------------------- */
+// Dedicated `Practices` table (see docs/airtable-schema.md). The portal does
+// the propose/confirm/cancel workflow here; a scheduled GitHub Action publishes
+// only confirmed practices (public-safe fields) to _data/practices.yml.
+
+export type PracticeStatus = "proposed" | "confirmed" | "cancelled";
+
+export interface Practice {
+  recordId: string; // Airtable record id (rec…) — used for updates
+  id: string; // formula id, e.g. "prac-2026-04-15-1730"
+  date: string; // YYYY-MM-DD
+  start_time: string;
+  end_time: string;
+  location: string;
+  focus: string;
+  notes: string;
+  proposed_by: string;
+  status: PracticeStatus;
+  confirmations: string[];
+}
+
+function practicesTable(): string {
+  return process.env.AIRTABLE_PRACTICES_TABLE || "Practices";
+}
+
+function toStrArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+
+function toPractice(r: AirtableRecord): Practice {
+  const f = r.fields;
+  const status = String(f["Status"] ?? "proposed") as PracticeStatus;
+  return {
+    recordId: r.id,
+    id: String(f["id"] ?? r.id),
+    date: String(f["Date"] ?? ""),
+    start_time: String(f["StartTime"] ?? ""),
+    end_time: String(f["EndTime"] ?? ""),
+    location: String(f["Location"] ?? ""),
+    focus: String(f["Focus"] ?? ""),
+    notes: String(f["Notes"] ?? ""),
+    proposed_by: String(f["ProposedBy"] ?? ""),
+    status,
+    confirmations: toStrArray(f["Confirmations"]),
+  };
+}
+
+export async function listPractices(): Promise<Practice[]> {
+  const data = await at<{ records: AirtableRecord[] }>(
+    `${tableUrl(practicesTable())}?pageSize=100`,
+  );
+  return data.records
+    .map(toPractice)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time));
+}
+
+export async function getPractice(recordId: string): Promise<Practice> {
+  const rec = await at<AirtableRecord>(
+    `${tableUrl(practicesTable())}/${recordId}`,
+  );
+  return toPractice(rec);
+}
+
+export async function createPractice(p: {
+  date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  focus: string;
+  notes?: string;
+  proposed_by: string;
+}): Promise<Practice> {
+  const rec = await at<AirtableRecord>(tableUrl(practicesTable()), {
+    method: "POST",
+    body: JSON.stringify({
+      fields: {
+        Date: p.date,
+        StartTime: p.start_time,
+        EndTime: p.end_time,
+        Location: p.location,
+        Focus: p.focus,
+        Notes: p.notes ?? "",
+        ProposedBy: p.proposed_by,
+        Status: "proposed",
+        Confirmations: [],
+      },
+    }),
+  });
+  return toPractice(rec);
+}
+
+export async function updatePractice(
+  recordId: string,
+  fields: Partial<{
+    status: PracticeStatus;
+    confirmations: string[];
+    notes: string;
+  }>,
+): Promise<Practice> {
+  const f: Record<string, unknown> = {};
+  if (fields.status !== undefined) f["Status"] = fields.status;
+  if (fields.confirmations !== undefined) f["Confirmations"] = fields.confirmations;
+  if (fields.notes !== undefined) f["Notes"] = fields.notes;
+  const rec = await at<AirtableRecord>(
+    `${tableUrl(practicesTable())}/${recordId}`,
+    { method: "PATCH", body: JSON.stringify({ fields: f }) },
+  );
+  return toPractice(rec);
+}
+
 /* --------------------------- ActivityLog --------------------------- */
 // Optional table. Logging never blocks a mutation.
 

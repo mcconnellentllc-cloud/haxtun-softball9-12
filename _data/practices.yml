@@ -1,0 +1,10 @@
+# Confirmed practices, published automatically from the coaches portal
+# (Airtable) by the sync-practices GitHub Action. Public-safe: no coach
+# names, no proposer, no status/notes. Do not hand-edit.
+
+- id: prac-2026-05-25-1730
+  date: 2026-05-25
+  start_time: "17:30"
+  end_time: "19:00"
+  location: "Haxtun Baseball Field"
+  focus: "Hitting + baserunning"
