@@ -1,0 +1,12 @@
+# Practice-location accent colors. Read by the public /calendar/ (Jekyll) and
+# kept in sync with LOCATION_COLORS in coaches-portal/app/page.tsx (the portal
+# is a separate build and can't read this file directly).
+#
+# These three names must match exactly: the Propose-form Location dropdown,
+# _data/field_busy.yml locations, and _data/practices.yml locations.
+- name: "Haxtun Baseball Field"
+  color: "#3b82f6"
+- name: "Behind the School"
+  color: "#f97316"
+- name: "Little Gym at School"
+  color: "#a855f7"
