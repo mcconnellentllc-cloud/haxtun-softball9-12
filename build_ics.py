@@ -32,6 +32,7 @@ except ImportError:
 
 REPO = Path(__file__).resolve().parent
 SCHEDULE_YML = REPO / "_data" / "schedule.yml"
+PRACTICES_YML = REPO / "_data" / "practices.yml"
 CONFIG_YML = REPO / "_config.yml"
 OUT_PATH = REPO / "assets" / "calendar" / "haxtun-bulldogs-2026.ics"
 
@@ -186,6 +187,57 @@ def game_event(g: dict, season: str, head_coach: str, dtstamp: str) -> list[str]
     ]
 
 
+def parse_time_24(t: str) -> tuple[int, int]:
+    """Parse '17:30' 24-hour time. Returns (hour, minute)."""
+    m = re.match(r"^(\d{1,2}):(\d{2})$", t.strip())
+    if not m:
+        raise ValueError(f"unrecognized practice time: {t!r}")
+    return int(m.group(1)), int(m.group(2))
+
+
+def practice_event(p: dict, season: str, dtstamp: str) -> list[str]:
+    """Confirmed practice. Public-safe fields only — no coach identities."""
+    if not p.get("date") or not p.get("start_time"):
+        return []
+    p_date = p["date"]
+    if isinstance(p_date, str):
+        p_date = datetime.strptime(p_date, "%Y-%m-%d").date()
+    sh, sm = parse_time_24(str(p["start_time"]))
+    start = datetime(p_date.year, p_date.month, p_date.day, sh, sm)
+    if p.get("end_time"):
+        eh, em = parse_time_24(str(p["end_time"]))
+        end = datetime(p_date.year, p_date.month, p_date.day, eh, em)
+    else:
+        end = start + timedelta(minutes=90)
+    focus = (p.get("focus") or "").strip()
+    summary = f"Bulldogs Practice — {focus}" if focus else "Bulldogs Practice"
+    location = (p.get("location") or "").strip()
+    description = f"Bulldogs Softball - {season} Season | Practice"
+    uid = f"{p.get('id') or stable_uid('practice-' + p_date.isoformat())}@haxtun-bulldogs"
+    return [
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{dtstamp}",
+        f"DTSTART;TZID={TZID}:{start.strftime('%Y%m%dT%H%M%S')}",
+        f"DTEND;TZID={TZID}:{end.strftime('%Y%m%dT%H%M%S')}",
+        f"SUMMARY:{escape_text(summary)}",
+        f"LOCATION:{escape_text(location)}",
+        f"DESCRIPTION:{escape_text(description)}",
+        "STATUS:CONFIRMED",
+        "BEGIN:VALARM",
+        "ACTION:DISPLAY",
+        f"DESCRIPTION:{escape_text(summary)} - 1 day reminder",
+        "TRIGGER:-P1D",
+        "END:VALARM",
+        "BEGIN:VALARM",
+        "ACTION:DISPLAY",
+        f"DESCRIPTION:{escape_text(summary)} - 2 hour reminder",
+        "TRIGGER:-PT2H",
+        "END:VALARM",
+        "END:VEVENT",
+    ]
+
+
 def postseason_event(p: dict, season: str, dtstamp: str) -> list[str]:
     start, end_inclusive = parse_postseason_dates(p["date_range"])
     end_exclusive = end_inclusive + timedelta(days=1)  # DTEND VALUE=DATE is exclusive
@@ -242,9 +294,21 @@ def build() -> str:
         "X-WR-TIMEZONE:America/Denver",
         "X-WR-CALDESC:Haxtun Bulldogs 9-12 girls softball schedule, 2026 season.",
     ]
+    practices = []
+    if PRACTICES_YML.exists():
+        try:
+            with open(PRACTICES_YML, "r", encoding="utf-8") as f:
+                loaded = yaml.safe_load(f)
+            if isinstance(loaded, list):
+                practices = loaded
+        except Exception:
+            practices = []
+
     lines.extend(vtimezone_block())
     for g in schedule.get("games", []):
         lines.extend(game_event(g, season, head_coach, dtstamp))
+    for p in practices:
+        lines.extend(practice_event(p, season, dtstamp))
     for p in schedule.get("postseason", []):
         lines.extend(postseason_event(p, season, dtstamp))
     lines.append("END:VCALENDAR")

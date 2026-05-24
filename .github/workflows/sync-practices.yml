@@ -1,0 +1,58 @@
+name: Sync practices from Airtable
+
+# Publishes CONFIRMED practices from the Airtable Practices table to
+# _data/practices.yml and regenerates the .ics, then commits if anything
+# changed. GitHub Pages rebuilds on the push. Secrets (set in repo settings):
+#   AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_PRACTICES_TABLE
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-practices
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Publish confirmed practices to _data/practices.yml
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_PRACTICES_TABLE: ${{ secrets.AIRTABLE_PRACTICES_TABLE }}
+        run: node scripts/sync-practices.mjs
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Regenerate the .ics (games + confirmed practices)
+        run: |
+          pip install pyyaml
+          python3 build_ics.py
+
+      - name: Commit if changed
+        run: |
+          if [ -n "$(git status --porcelain _data/practices.yml assets/calendar/haxtun-bulldogs-2026.ics)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add _data/practices.yml assets/calendar/haxtun-bulldogs-2026.ics
+            git commit -m "chore: sync practices from Airtable [skip ci]"
+            git push
+          else
+            echo "No changes to publish."
+          fi

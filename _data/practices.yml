@@ -1,0 +1,7 @@
+# Confirmed practices, published automatically from the coaches portal
+# (Airtable) by the sync-practices GitHub Action. Public-safe: no coach
+# names, no proposer, no status/notes. Do not hand-edit.
+#
+# Empty until a practice is proposed in the portal and confirmed by another
+# coach — then the sync workflow fills this in.
+[]

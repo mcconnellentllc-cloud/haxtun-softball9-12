@@ -32,6 +32,7 @@ plugins:
 nav:
   - { title: "Home",        url: "/" }
   - { title: "Schedule",    url: "/schedule/" }
+  - { title: "Calendar",    url: "/calendar/" }
   - { title: "Roster",      url: "/roster/" }
   - { title: "League Rules", url: "/league-rules/" }
   - { title: "NFHS Rules",  url: "/nfhs-rules/" }
