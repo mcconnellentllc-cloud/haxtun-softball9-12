@@ -26,23 +26,24 @@ type Defense = Record<string, string>[];
 // a slot mid-game changes who owns that slot from that inning forward.
 type Batting = Record<string, string>[];
 
-// A per-game plan for one squad: defensive rotation + batting lineup grid.
+// A per-game plan for one lineup: defensive rotation + batting lineup grid.
 type GamePlan = {
   defense: Defense; // one entry per inning
   batting: Batting; // one entry per inning
 };
 
-// Each game carries a plan per squad: one for the A team, one for the B team.
+// Each game carries two independent lineups (UI: "Lineup 1" / "Lineup 2").
+// The internal keys stay "A"/"B"; see sideLabel() for the display names.
 type Side = "A" | "B";
 type GamePlanAB = Record<Side, GamePlan>;
 
-// A coach's per-game proposal is itself an A/B pair.
+// A coach's per-game proposal is itself a Lineup 1 / Lineup 2 pair.
 type Proposal = GamePlanAB;
 // coach name -> their proposal, within a single week
 type WeekProposals = Record<string, Proposal>;
 // week key (YYYY-MM-DD) -> that week's per-coach proposals
 type Proposals = Record<string, WeekProposals>;
-// week key (YYYY-MM-DD) -> that week's team plan (A/B)
+// week key (YYYY-MM-DD) -> that week's two lineups
 type GamePlans = Record<string, GamePlanAB>;
 // week key (YYYY-MM-DD) -> shared coaches note for that game
 type Notes = Record<string, string>;
@@ -1059,7 +1060,7 @@ function ComparePanel({
         <div className="space-y-5">
           <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
             <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-              Your proposal — {side} team
+              Your proposal — {sideLabel(side)}
             </h2>
             <p className="mt-1 text-sm text-neutral-400">
               Entering as <span className="text-neutral-100">{coach}</span>{" "}
@@ -1151,7 +1152,12 @@ function CoachSelect({
   );
 }
 
-// A team / B team squad toggle.
+// User-facing name for a lineup side. The internal keys stay "A"/"B".
+function sideLabel(s: Side): string {
+  return s === "A" ? "Lineup 1" : "Lineup 2";
+}
+
+// Lineup 1 / Lineup 2 toggle (two independent per-game lineups).
 function SideToggle({
   side,
   onSelect,
@@ -1162,7 +1168,7 @@ function SideToggle({
   return (
     <div className="flex items-center gap-2">
       <span className="font-display text-lg tracking-wider text-neutral-200">
-        Squad
+        Lineup
       </span>
       {(["A", "B"] as const).map((s) => (
         <button
@@ -1175,7 +1181,7 @@ function SideToggle({
               : "border border-neutral-700 bg-black/40 text-neutral-300 hover:border-red-600")
           }
         >
-          {s} Team
+          {sideLabel(s)}
         </button>
       ))}
     </div>
@@ -1964,7 +1970,7 @@ function DefenseCompare({
     <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-          Defense — {side} team
+          Defense — {sideLabel(side)}
         </h2>
         <p className="text-sm">
           <span className="text-emerald-400">{agree} agree</span>
@@ -2055,7 +2061,7 @@ function BattingCompare({
     <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-          Batting order — {side} team
+          Batting order — {sideLabel(side)}
         </h2>
         <p className="text-sm">
           <span className="text-emerald-400">{agree} agree</span>
