@@ -463,6 +463,7 @@ export default function Home() {
             players={players}
             byId={byId}
             depth={depth}
+            coachDepths={coachDepths}
             gameplans={gameplans}
             proposals={proposals}
             coach={coach}
@@ -1499,6 +1500,7 @@ function PlanEditor({
   coach,
   proposals,
   gameplans,
+  consensus,
 }: {
   players: Player[];
   byId: Map<string, Player>;
@@ -1511,13 +1513,57 @@ function PlanEditor({
   coach: string | null;
   proposals: Proposals;
   gameplans: GamePlans;
+  // When set, the Defense draft button imports agreed positions from the coach
+  // depth charts (Game Plan tab) instead of auto-drafting from one chart.
+  consensus?: { coachDepths: CoachDepths; activeIds: Set<string> };
 }) {
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2500);
+    const t = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // Cells filled by the last consensus import; the highlight fades as the head
+  // coach edits each cell. Reset whenever the selected game/side changes.
+  const [importedCells, setImportedCells] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [confirmImport, setConfirmImport] = useState(false);
+  const [importing, setImporting] = useState(false);
+  useEffect(() => {
+    setImportedCells(new Set());
+  }, [week, side]);
+
+  const runConsensusImport = () => {
+    if (!consensus) return;
+    setImporting(true);
+    // Brief loading beat, then fill — the work itself is instant.
+    setTimeout(() => {
+      const { defense, cells, filled } = consensusDefense(
+        consensus.coachDepths,
+        consensus.activeIds,
+      );
+      onChange({ ...plan, defense });
+      setImportedCells(cells);
+      const none = POSITIONS.length - filled;
+      setToast(
+        `Imported ${filled} of ${POSITIONS.length} positions from coach consensus.` +
+          (none > 0 ? ` ${none} had no 2-of-3 majority — fill those manually.` : ""),
+      );
+      setImporting(false);
+      setConfirmImport(false);
+    }, 250);
+  };
+
+  const clearImported = (inning: number, pos: string) => {
+    setImportedCells((prev) => {
+      if (!prev.has(`${inning}:${pos}`)) return prev;
+      const next = new Set(prev);
+      next.delete(`${inning}:${pos}`);
+      return next;
+    });
+  };
 
   const importField = (field: ImportField, src: ImportSource) => {
     if (field === "defense") {
@@ -1542,6 +1588,35 @@ function PlanEditor({
 
   return (
     <>
+      {confirmImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded border border-neutral-700 bg-neutral-900 p-5 shadow-xl">
+            <h3 className="font-display text-xl tracking-wider text-neutral-100">
+              Import agreed positions?
+            </h3>
+            <p className="mt-2 text-sm text-neutral-400">
+              This will overwrite any existing inning assignments in the Defense
+              grid. Continue?
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmImport(false)}
+                disabled={importing}
+                className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 font-display text-sm tracking-wider text-neutral-300 hover:border-red-600 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={runConsensusImport}
+                disabled={importing}
+                className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500 disabled:opacity-60"
+              >
+                {importing ? "Importing…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {toast && (
         <div className="rounded border border-emerald-900 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-300">
           {toast}
@@ -1553,16 +1628,27 @@ function PlanEditor({
             Defense{" "}
             <span className="text-sm text-neutral-500">({INNINGS} innings)</span>
           </h2>
-          <button
-            onClick={autoDraft}
-            className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500"
-          >
-            {draftLabel}
-          </button>
+          {consensus ? (
+            <button
+              onClick={() => setConfirmImport(true)}
+              disabled={importing}
+              className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500 disabled:opacity-60"
+            >
+              {importing ? "Importing…" : "Import Agreed Positions"}
+            </button>
+          ) : (
+            <button
+              onClick={autoDraft}
+              className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500"
+            >
+              {draftLabel}
+            </button>
+          )}
         </div>
         <p className="mt-0.5 text-xs text-neutral-500">
-          Drafts a fair rotation, then leans extra innings toward the strongest
-          players. Adjust any cell below.
+          {consensus
+            ? `Fills positions where 2 of 3 coaches agree (innings 1–${CONSENSUS_INNINGS}, active players only). Later innings stay blank for you to set rotation.`
+            : "Drafts a fair rotation, then leans extra innings toward the strongest players. Adjust any cell below."}
         </p>
         <ImportControl
           field="defense"
@@ -1577,6 +1663,8 @@ function PlanEditor({
           players={players}
           defense={plan.defense}
           onChange={(defense) => onChange({ ...plan, defense })}
+          importedCells={consensus ? importedCells : undefined}
+          onCellTouched={consensus ? clearImported : undefined}
         />
       </div>
 
@@ -1618,16 +1706,22 @@ function DefenseGrid({
   players,
   defense,
   onChange,
+  importedCells,
+  onCellTouched,
 }: {
   players: Player[];
   defense: Defense;
   onChange: (next: Defense) => void;
+  // Cells filled by a consensus import, keyed "inning:pos" — tinted until edited.
+  importedCells?: Set<string>;
+  onCellTouched?: (inning: number, pos: string) => void;
 }) {
   const setCell = (inning: number, pos: string, id: string) => {
     const next = defense.map((d, i) => (i === inning ? { ...d } : d));
     if (id) next[inning][pos] = id;
     else delete next[inning][pos];
     onChange(next);
+    onCellTouched?.(inning, pos);
   };
 
   return (
@@ -1665,12 +1759,18 @@ function DefenseGrid({
                 const options = players.filter(
                   (p) => p.id === current || !used.has(p.id),
                 );
+                const imported = importedCells?.has(`${inning}:${pos}`);
                 return (
                   <td key={inning} className="px-1 py-1">
                     <select
                       value={current}
                       onChange={(e) => setCell(inning, pos, e.target.value)}
-                      className="w-full rounded border border-neutral-700 bg-neutral-900 px-1 py-1 text-sm outline-none focus:border-red-600"
+                      className={
+                        "w-full rounded border px-1 py-1 text-sm outline-none transition-colors focus:border-red-600 " +
+                        (imported
+                          ? "border-sky-600 bg-sky-950/50"
+                          : "border-neutral-700 bg-neutral-900")
+                      }
                     >
                       <option value="">—</option>
                       {options.map((p) => (
@@ -2172,6 +2272,70 @@ function draftBatting(players: Player[]): Batting {
   });
 }
 
+// How many leading innings a consensus pick fills; the rest stay blank for the
+// head coach to set rotation.
+const CONSENSUS_INNINGS = 3;
+
+// A coach's top-ranked ACTIVE player at a position. Skips picks who aren't
+// active for this game — the "fall through to the next ranked active player"
+// rule — so an absent #1 doesn't block the position.
+function topActivePick(
+  list: string[] | undefined,
+  activeIds: Set<string>,
+): string | undefined {
+  for (const id of list ?? []) if (activeIds.has(id)) return id;
+  return undefined;
+}
+
+// The agreed starter at a position: the player who is the top active pick for a
+// majority of coaches (2-of-3, or 2-of-2 when only two coaches have a chart).
+// Returns undefined when no majority exists.
+function consensusStarter(
+  pos: string,
+  coachDepths: CoachDepths,
+  activeIds: Set<string>,
+): string | undefined {
+  const picks = COACHES.map((c) =>
+    topActivePick(coachDepths[c]?.[pos], activeIds),
+  ).filter((x): x is string => !!x);
+  if (picks.length < 2) return undefined;
+  const counts = new Map<string, number>();
+  for (const id of picks) counts.set(id, (counts.get(id) ?? 0) + 1);
+  let best: string | undefined;
+  let bestN = 0;
+  for (const [id, n] of counts) {
+    if (n > bestN) {
+      best = id;
+      bestN = n;
+    }
+  }
+  return bestN >= 2 ? best : undefined;
+}
+
+// Build a defense grid from coach consensus. Each agreed starter fills innings
+// 1–CONSENSUS_INNINGS of its position; innings after that — and positions with
+// no majority — stay blank for the head coach. Returns the grid, the set of
+// filled "inning:pos" cell keys (for the imported-cell highlight), and how many
+// positions were filled.
+function consensusDefense(
+  coachDepths: CoachDepths,
+  activeIds: Set<string>,
+): { defense: Defense; cells: Set<string>; filled: number } {
+  const defense: Defense = Array.from({ length: INNINGS }, () => ({}));
+  const cells = new Set<string>();
+  let filled = 0;
+  for (const pos of POSITIONS) {
+    const id = consensusStarter(pos, coachDepths, activeIds);
+    if (!id) continue;
+    filled++;
+    for (let inn = 0; inn < Math.min(CONSENSUS_INNINGS, INNINGS); inn++) {
+      defense[inn][pos] = id;
+      cells.add(`${inn}:${pos}`);
+    }
+  }
+  return { defense, cells, filled };
+}
+
 function draftDefense(players: Player[], depth: DepthChart): Defense {
   const FLOOR = 2;
   const ids = new Set(players.map((p) => p.id));
@@ -2221,6 +2385,7 @@ function GamePlanPanel({
   players,
   byId,
   depth,
+  coachDepths,
   gameplans,
   proposals,
   coach,
@@ -2231,6 +2396,7 @@ function GamePlanPanel({
   players: Player[];
   byId: Map<string, Player>;
   depth: DepthChart;
+  coachDepths: CoachDepths;
   gameplans: GamePlans;
   proposals: Proposals;
   coach: string | null;
@@ -2240,6 +2406,13 @@ function GamePlanPanel({
 }) {
   const [week, setWeek] = useState<string>(() => defaultGameDate());
   const [side, setSide] = useState<Side>("A");
+
+  // Active = roster-wide active flag. The portal has no per-game availability,
+  // so absent players still need to be cleared by hand after import.
+  const activeIds = useMemo(
+    () => new Set(players.filter((p) => p.active).map((p) => p.id)),
+    [players],
+  );
 
   if (players.length === 0) return <EmptyRoster what="game plan" />;
 
@@ -2268,6 +2441,7 @@ function GamePlanPanel({
         coach={coach}
         proposals={proposals}
         gameplans={gameplans}
+        consensus={{ coachDepths, activeIds }}
         onChange={(next) =>
           onChange({ ...gameplans, [week]: { ...ab, [side]: next } })
         }
