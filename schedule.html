@@ -28,6 +28,24 @@ permalink: /schedule/
   </thead>
   <tbody>
     {% for g in site.data.schedule.games %}
+    {% if g.doubleheader %}
+      {% assign dh_times = g.time | append: "|G1," | append: g.game2_time | append: "|G2" | split: "," %}
+      {% for slot in dh_times %}
+        {% assign sp = slot | split: "|" %}
+    <tr>
+      <td>
+        <strong>{{ g.date | date: "%a %b %-d" }}</strong><br>
+        <span style="color:#6b6b6b;font-size:.88rem">{{ sp[0] }}</span>
+      </td>
+      <td>{{ g.opponent }} <span style="color:#6b6b6b;font-size:.85rem">({{ sp[1] }})</span>{% if g.notes != "" %}<br><span style="color:#6b6b6b;font-size:.85rem">{{ g.notes }}</span>{% endif %}</td>
+      <td>{{ g.location }}</td>
+      <td>
+        {% if g.home %}<span class="tag tag--home">Home</span>{% else %}<span class="tag tag--away">Away</span>{% endif %}
+      </td>
+      <td><strong>—</strong></td>
+    </tr>
+      {% endfor %}
+    {% else %}
     <tr>
       <td>
         <strong>{{ g.date | date: "%a %b %-d" }}</strong><br>
@@ -46,6 +64,7 @@ permalink: /schedule/
       </td>
       <td><strong>{{ g.result | default: "—" }}</strong></td>
     </tr>
+    {% endif %}
     {% endfor %}
   </tbody>
 </table>

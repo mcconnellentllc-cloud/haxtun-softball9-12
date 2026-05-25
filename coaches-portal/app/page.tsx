@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { SCHEDULE, gameLabel, defaultGameDate, type Game } from "@/lib/schedule";
+import { SCHEDULE, gameLabel, defaultGameDate, expandGames, type Game } from "@/lib/schedule";
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -55,12 +55,11 @@ const COACHES = ["Emily", "Jordan", "Kyle"] as const;
 const INNINGS = 5;
 const BATTING_SLOTS = 12;
 const SLOTS = Array.from({ length: BATTING_SLOTS }, (_, i) => String(i + 1));
-const TABS = ["roster", "teams", "depth", "calendar", "compare", "plan", "stats"] as const;
+const TABS = ["roster", "depth", "calendar", "compare", "plan", "stats"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   roster: "Roster",
-  teams: "Teams",
   depth: "Depth Chart",
   calendar: "Calendar",
   compare: "Propose",
@@ -427,8 +426,6 @@ export default function Home() {
           <p className="text-neutral-400">Loading…</p>
         ) : tab === "roster" ? (
           <RosterPanel players={players} />
-        ) : tab === "teams" ? (
-          <TeamsPanel players={players} />
         ) : tab === "depth" ? (
           <DepthTab
             players={players}
@@ -903,45 +900,6 @@ function DepthCompare({
         </div>
       )}
     </div>
-  );
-}
-
-/* ----------------------------- Teams ----------------------------- */
-
-// Reference list only. Every active player is available to BOTH the A and B
-// lineups for every game — there is no squad split. Who's active is managed on
-// the Roster tab; A/B differ only in their per-game lineups, defense, and subs.
-function TeamsPanel({ players }: { players: Player[] }) {
-  if (players.length === 0) return <EmptyRoster what="teams" />;
-
-  return (
-    <section className="space-y-4">
-      <p className="text-sm text-neutral-400">
-        Every active player is on both the <span className="text-neutral-200">A</span>{" "}
-        and <span className="text-neutral-200">B</span> lineups for every game —
-        there&rsquo;s no roster split. A and B differ only in the lineup, defense
-        rotation, and subs you build per game on the{" "}
-        <span className="text-neutral-200">Propose</span> and{" "}
-        <span className="text-neutral-200">Game Plan</span> tabs. To change who&rsquo;s
-        active, use the <span className="text-neutral-200">Roster</span> tab.
-      </p>
-      <div className="rounded border border-neutral-800 bg-neutral-900 p-3">
-        <h3 className="font-display text-2xl tracking-wider text-neutral-100">
-          Active for A/B planning{" "}
-          <span className="text-base text-neutral-500">({players.length})</span>
-        </h3>
-        <ul className="mt-2 grid gap-1 sm:grid-cols-2">
-          {players.map((p) => (
-            <li
-              key={p.id}
-              className="rounded bg-black/40 px-2 py-1 text-sm"
-            >
-              <PlayerName p={p} />
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
   );
 }
 
@@ -2420,7 +2378,7 @@ function CalendarPanel({
   }, [practices]);
   const gameByDate = useMemo(() => {
     const m = new Map<string, Game[]>();
-    for (const g of SCHEDULE) (m.get(g.date) ?? m.set(g.date, []).get(g.date)!).push(g);
+    for (const g of expandGames()) (m.get(g.date) ?? m.set(g.date, []).get(g.date)!).push(g);
     return m;
   }, []);
 
@@ -2637,7 +2595,7 @@ function MonthGrid({
                     onClick={() => onGame(g)}
                     className={"block w-full truncate rounded px-1 py-0.5 text-left text-[11px] " + eventChipCls("game")}
                   >
-                    {g.home ? "vs" : "@"} {g.opponent}
+                    {g.home ? "vs" : "@"} {g.opponent}{g.gameNo ? ` (G${g.gameNo})` : ""}
                   </button>
                 ))}
                 {pracs.map((p) => (
@@ -2687,13 +2645,13 @@ function CalendarList({
 }) {
   type Row = { date: string; sort: string; el: React.ReactNode };
   const rows: Row[] = [];
-  for (const g of SCHEDULE) {
+  for (const g of expandGames()) {
     rows.push({
       date: g.date,
-      sort: g.date + " 0",
+      sort: g.date + " 0" + (g.gameNo ?? 0),
       el: (
         <button
-          key={`g-${g.date}-${g.opponent}`}
+          key={`g-${g.date}-${g.opponent}-${g.gameNo ?? 0}`}
           onClick={() => onGame(g)}
           className={"block w-full rounded px-3 py-2 text-left text-sm " + eventChipCls("game")}
         >
@@ -2761,8 +2719,9 @@ function BusyDetail({ busy, onClose }: { busy: FieldBusy; onClose: () => void })
 
 function GameDetail({ game, onClose }: { game: Game; onClose: () => void }) {
   return (
-    <DetailCard title={`${game.home ? "vs" : "@"} ${game.opponent}`} onClose={onClose}>
+    <DetailCard title={`${game.home ? "vs" : "@"} ${game.opponent}${game.gameNo ? ` (G${game.gameNo})` : ""}`} onClose={onClose}>
       <p className="text-sm text-neutral-300">{gameLabel(game)}</p>
+      {game.time && <p className="mt-1 text-sm text-neutral-300">{game.time}</p>}
       <p className="mt-1 text-sm text-neutral-400">{game.location}</p>
       <p className="mt-1 text-xs text-neutral-600">Games are read-only (from the season schedule).</p>
     </DetailCard>
