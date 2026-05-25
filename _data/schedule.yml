@@ -2,6 +2,11 @@
 # All game times 6:00 PM unless noted
 # home: true means we are home team
 # Use ISO date YYYY-MM-DD
+#
+# Doubleheader (two back-to-back games, same opponent & location, same day):
+#   add  doubleheader: true  and  game2_time: "7:00 PM"  to the entry. The
+#   "time" field is game 1's first pitch. Both games render as separate
+#   entries on /calendar/, /schedule/, the portal calendar, and the .ics.
 
 games:
   - date: 2026-05-19

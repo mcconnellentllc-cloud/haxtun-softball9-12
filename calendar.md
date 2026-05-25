@@ -7,7 +7,7 @@ permalink: /calendar/
 ---
 
 {%- capture rows -%}
-{%- for g in site.data.schedule.games -%}{%- unless g.opponent == "BYE" -%}{{ g.date }}~{{ g.time }}~Game~{% if g.home %}vs {{ g.opponent }}{% else %}@ {{ g.opponent }}{% endif %}~{{ g.location }}@@{%- endunless -%}{%- endfor -%}
+{%- for g in site.data.schedule.games -%}{%- unless g.opponent == "BYE" -%}{%- if g.doubleheader -%}{{ g.date }}~{{ g.time }}~Game~{% if g.home %}vs {{ g.opponent }}{% else %}@ {{ g.opponent }}{% endif %} (G1)~{{ g.location }}@@{{ g.date }}~{{ g.game2_time }}~Game~{% if g.home %}vs {{ g.opponent }}{% else %}@ {{ g.opponent }}{% endif %} (G2)~{{ g.location }}@@{%- else -%}{{ g.date }}~{{ g.time }}~Game~{% if g.home %}vs {{ g.opponent }}{% else %}@ {{ g.opponent }}{% endif %}~{{ g.location }}@@{%- endif -%}{%- endunless -%}{%- endfor -%}
 {%- for p in site.data.practices -%}{{ p.date }}~{{ p.start_time }}~Practice~{{ p.focus }}~{{ p.location }}@@{%- endfor -%}
 {%- endcapture -%}
 {%- assign list = rows | split: "@@" -%}

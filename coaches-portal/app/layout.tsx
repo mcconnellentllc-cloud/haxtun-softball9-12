@@ -14,7 +14,7 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   title: "Bulldogs Coaches",
-  description: "Haxtun Bulldogs coaches portal — roster, teams, lineups.",
+  description: "Haxtun Bulldogs coaches portal — roster, lineups, schedule.",
   manifest: "/manifest.json",
   robots: { index: false, follow: false },
   appleWebApp: {

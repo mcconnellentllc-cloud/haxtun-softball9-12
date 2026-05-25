@@ -8,6 +8,10 @@ export type Game = {
   opponent: string;
   home: boolean;
   location: string;
+  time?: string; // first-pitch, e.g. "5:30 PM" (display only)
+  doubleheader?: boolean; // two back-to-back games, same opponent & location
+  game2_time?: string; // required when doubleheader; second game's first-pitch
+  gameNo?: 1 | 2; // set only on expanded doubleheader tiles (see expandGames)
 };
 
 export const SCHEDULE: Game[] = [
@@ -25,13 +29,31 @@ export const SCHEDULE: Game[] = [
   { date: "2026-06-24", day: "Wed", opponent: "League Tournament", home: false, location: "Holyoke, CO" },
 ];
 
-// e.g. "Thu May 21 · at Holyoke"
+// e.g. "Thu May 21 · at Holyoke" (doubleheader tiles get a " (G1)"/" (G2)" tag)
 export function gameLabel(g: Game): string {
   const d = new Date(`${g.date}T00:00:00`);
   const md = Number.isNaN(d.getTime())
     ? g.date
     : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  return `${g.day} ${md} · ${g.home ? "vs" : "at"} ${g.opponent}`;
+  const suffix = g.gameNo ? ` (G${g.gameNo})` : "";
+  return `${g.day} ${md} · ${g.home ? "vs" : "at"} ${g.opponent}${suffix}`;
+}
+
+// Expand doubleheaders into two ordered tiles (G1 then G2); single games pass
+// through unchanged. Use this for calendar rendering only — GameSelect and the
+// per-game plans key off the raw one-entry-per-date SCHEDULE list and must stay
+// unaffected.
+export function expandGames(games: Game[] = SCHEDULE): Game[] {
+  const out: Game[] = [];
+  for (const g of games) {
+    if (g.doubleheader && g.game2_time) {
+      out.push({ ...g, gameNo: 1 });
+      out.push({ ...g, gameNo: 2, time: g.game2_time });
+    } else {
+      out.push(g);
+    }
+  }
+  return out;
 }
 
 export function gameByDate(date: string): Game | undefined {
