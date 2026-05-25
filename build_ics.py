@@ -40,6 +40,11 @@ PRODID = "-//Haxtun Bulldogs Softball//9-12 Schedule//EN"
 TZID = "America/Denver"
 HOME_LOCATION = "Haxtun Baseball Field, Haxtun, CO"
 
+# Static project epoch so regenerating the .ics is byte-stable (no DTSTAMP
+# churn / phantom merge conflicts). RFC 5545 only requires DTSTAMP to be a
+# valid UTC timestamp, not the actual generation time.
+DTSTAMP = "20260101T000000Z"
+
 GAME_DURATION = timedelta(minutes=90)
 
 MONTHS = {
@@ -305,7 +310,7 @@ def build() -> str:
         except Exception:
             pass
 
-    dtstamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    dtstamp = DTSTAMP
 
     lines: list[str] = [
         "BEGIN:VCALENDAR",
