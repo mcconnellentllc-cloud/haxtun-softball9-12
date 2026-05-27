@@ -26,10 +26,24 @@ type Defense = Record<string, string>[];
 // a slot mid-game changes who owns that slot from that inning forward.
 type Batting = Record<string, string>[];
 
-// A per-game plan for one lineup: defensive rotation + batting lineup grid.
+// A defensive substitution that takes effect after a specific batter in an
+// inning (league rule: rotate outfielders every 3 batters — RF+CF at home,
+// LF+CF on the road). playerId "" = slot left blank.
+type MidInningSub = {
+  afterBatter: number; // 1..8 (the 9th batter ends the half-inning)
+  position: string;    // POSITIONS member
+  playerId: string;
+};
+
+// One list of mid-inning subs per inning, in batter order.
+type Subs = MidInningSub[][];
+
+// A per-game plan for one lineup: defensive rotation + batting lineup grid
+// + mid-inning defensive subs.
 type GamePlan = {
   defense: Defense; // one entry per inning
   batting: Batting; // one entry per inning
+  subs: Subs;       // one list per inning
 };
 
 // Each game carries two independent lineups (UI: "Lineup 1" / "Lineup 2").
@@ -185,6 +199,34 @@ function normalizeBatting(raw: unknown, legacyOrder?: unknown): Batting {
   return out;
 }
 
+function normalizeSubs(raw: unknown): Subs {
+  const out: Subs = Array.from({ length: INNINGS }, () => []);
+  if (!Array.isArray(raw)) return out;
+  for (let i = 0; i < INNINGS; i++) {
+    const inn = raw[i];
+    if (!Array.isArray(inn)) continue;
+    const valid: MidInningSub[] = [];
+    for (const s of inn) {
+      if (!s || typeof s !== "object") continue;
+      const sub = s as Record<string, unknown>;
+      const afterBatter = Number(sub.afterBatter);
+      const position = typeof sub.position === "string" ? sub.position : "";
+      const playerId = typeof sub.playerId === "string" ? sub.playerId : "";
+      if (
+        Number.isInteger(afterBatter) &&
+        afterBatter >= 1 &&
+        afterBatter <= 8 &&
+        (POSITIONS as readonly string[]).includes(position)
+      ) {
+        valid.push({ afterBatter, position, playerId });
+      }
+    }
+    valid.sort((a, b) => a.afterBatter - b.afterBatter);
+    out[i] = valid;
+  }
+  return out;
+}
+
 function normalizeGamePlan(raw: unknown): GamePlan {
   const p = (raw && typeof raw === "object" ? raw : {}) as Record<
     string,
@@ -193,6 +235,7 @@ function normalizeGamePlan(raw: unknown): GamePlan {
   return {
     defense: normalizeDefense(p.defense),
     batting: normalizeBatting(p.batting, p.order),
+    subs: normalizeSubs(p.subs),
   };
 }
 
@@ -915,8 +958,30 @@ function emptyBatting(): Batting {
   return Array.from({ length: INNINGS }, () => ({}));
 }
 
+function emptySubs(): Subs {
+  return Array.from({ length: INNINGS }, () => []);
+}
+
 function emptyGamePlan(): GamePlan {
-  return { defense: emptyDefense(), batting: emptyBatting() };
+  return { defense: emptyDefense(), batting: emptyBatting(), subs: emptySubs() };
+}
+
+// Outfield rotation pair under our league's "every 3 batters" rule.
+// Home: RF + CF rotate. Away: LF + CF rotate.
+function rotationPair(isHome: boolean): readonly [string, string] {
+  return isHome ? ["RF", "CF"] : ["LF", "CF"];
+}
+
+// Empty rotation-rule stubs for one inning — two sub events at batters 3 and 6,
+// each covering both rotating positions. Coach fills in the bench players.
+function rotationStubs(isHome: boolean): MidInningSub[] {
+  const [p1, p2] = rotationPair(isHome);
+  return [
+    { afterBatter: 3, position: p1, playerId: "" },
+    { afterBatter: 3, position: p2, playerId: "" },
+    { afterBatter: 6, position: p1, playerId: "" },
+    { afterBatter: 6, position: p2, playerId: "" },
+  ];
 }
 
 function emptyGamePlanAB(): GamePlanAB {
@@ -969,7 +1034,8 @@ function hasPlan(p: GamePlan | undefined): boolean {
   if (!p) return false;
   return (
     p.defense.some((inn) => Object.keys(inn).length > 0) ||
-    p.batting.some((inn) => Object.keys(inn).length > 0)
+    p.batting.some((inn) => Object.keys(inn).length > 0) ||
+    p.subs.some((inn) => inn.some((s) => s.playerId !== ""))
   );
 }
 
@@ -1539,6 +1605,11 @@ function PlanEditor({
     }
   };
 
+  // The league's outfield rotation rule depends on home/away; default to a home
+  // game if the date isn't on the schedule (shouldn't happen — the picker is
+  // schedule-backed).
+  const isHome = SCHEDULE.find((g) => g.date === week)?.home ?? true;
+
   const autoDraft = () => {
     const defense = draftDefense(players, draftDepth);
     // Seed the batting grid with a default lineup the first time, so the at-bat
@@ -1631,6 +1702,13 @@ function PlanEditor({
           onCellTouched={consensus ? clearImported : undefined}
         />
       </div>
+
+      <MidInningSubsSection
+        players={players}
+        subs={plan.subs}
+        isHome={isHome}
+        onChange={(subs) => onChange({ ...plan, subs })}
+      />
 
       <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
         <h2 className="font-display text-2xl tracking-wider text-neutral-100">
@@ -1878,6 +1956,166 @@ function BattingGrid({
         ]}
       />
     </>
+  );
+}
+
+// Per-inning mid-inning defensive subs editor. The league rule is "rotate the
+// outfielders every 3 batters" — RF + CF at home, LF + CF on the road — so the
+// "Apply rotation rule" button stubs the four sub events (after batters 3 and
+// 6, both rotating positions) for the coach to fill with bench players.
+function MidInningSubsSection({
+  players,
+  subs,
+  isHome,
+  onChange,
+}: {
+  players: Player[];
+  subs: Subs;
+  isHome: boolean;
+  onChange: (next: Subs) => void;
+}) {
+  const [pos1, pos2] = rotationPair(isHome);
+  const venue = isHome ? "Home" : "Away";
+  const active = players.filter((p) => p.active);
+
+  const updateInning = (i: number, next: MidInningSub[]) => {
+    onChange(subs.map((arr, idx) => (idx === i ? next : arr)));
+  };
+  const addSub = (i: number) =>
+    updateInning(i, [
+      ...subs[i],
+      { afterBatter: 3, position: pos1, playerId: "" },
+    ]);
+  const applyRotation = (i: number) =>
+    updateInning(i, rotationStubs(isHome));
+  const swapAllInfield = (i: number) => {
+    const infield = ["P", "C", "1B", "2B", "3B", "SS"];
+    const stubs: MidInningSub[] = infield.map((position) => ({
+      afterBatter: 3,
+      position,
+      playerId: "",
+    }));
+    // Append to whatever's already there so an outfield rotation set earlier
+    // isn't blown away.
+    updateInning(i, [...subs[i], ...stubs]);
+  };
+  const removeSub = (i: number, j: number) =>
+    updateInning(i, subs[i].filter((_, k) => k !== j));
+  const editSub = (i: number, j: number, patch: Partial<MidInningSub>) => {
+    const next = subs[i].map((s, k) => (k === j ? { ...s, ...patch } : s));
+    next.sort((a, b) => a.afterBatter - b.afterBatter);
+    updateInning(i, next);
+  };
+
+  return (
+    <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+      <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+        Mid-inning subs
+      </h2>
+      <p className="mt-0.5 text-xs text-neutral-500">
+        League rule: after every 3 batters, {pos1} and {pos2} change. ({venue})
+      </p>
+      <div className="mt-3 space-y-3">
+        {subs.map((innSubs, i) => (
+          <div
+            key={i}
+            className="rounded border border-neutral-800 bg-black/40 p-3"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-display text-sm tracking-wider text-neutral-300">
+                Inning {i + 1}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => applyRotation(i)}
+                  className="rounded border border-neutral-700 bg-black/40 px-2 py-1 font-display text-xs tracking-wider text-neutral-300 hover:border-red-600"
+                >
+                  Apply rotation rule
+                </button>
+                <button
+                  onClick={() => swapAllInfield(i)}
+                  className="rounded border border-neutral-700 bg-black/40 px-2 py-1 font-display text-xs tracking-wider text-neutral-300 hover:border-red-600"
+                >
+                  Swap all infield
+                </button>
+                <button
+                  onClick={() => addSub(i)}
+                  className="rounded border border-neutral-700 bg-black/40 px-2 py-1 font-display text-xs tracking-wider text-neutral-300 hover:border-red-600"
+                >
+                  + Add sub
+                </button>
+              </div>
+            </div>
+            {innSubs.length === 0 ? (
+              <p className="mt-2 text-xs text-neutral-600">
+                No mid-inning subs.
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {innSubs.map((s, j) => (
+                  <li
+                    key={j}
+                    className="flex flex-wrap items-center gap-2 text-sm"
+                  >
+                    <span className="text-neutral-500">After batter</span>
+                    <select
+                      value={s.afterBatter}
+                      onChange={(e) =>
+                        editSub(i, j, {
+                          afterBatter: Number(e.target.value),
+                        })
+                      }
+                      className="rounded border border-neutral-700 bg-black/40 px-2 py-1 text-sm text-neutral-200"
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={s.position}
+                      onChange={(e) =>
+                        editSub(i, j, { position: e.target.value })
+                      }
+                      className="rounded border border-neutral-700 bg-black/40 px-2 py-1 text-sm text-neutral-200"
+                    >
+                      {POSITIONS.map((pos) => (
+                        <option key={pos} value={pos}>
+                          {pos}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-neutral-500">→</span>
+                    <select
+                      value={s.playerId}
+                      onChange={(e) =>
+                        editSub(i, j, { playerId: e.target.value })
+                      }
+                      className="min-w-[12rem] rounded border border-neutral-700 bg-black/40 px-2 py-1 text-sm text-neutral-200"
+                    >
+                      <option value="">— pick player —</option>
+                      {active.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {jerseyTag(p)} {p.firstName} {p.lastName}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => removeSub(i, j)}
+                      className="ml-auto rounded border border-neutral-700 bg-black/40 px-2 py-1 text-xs text-neutral-400 hover:border-red-600"
+                      aria-label="Remove sub"
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
