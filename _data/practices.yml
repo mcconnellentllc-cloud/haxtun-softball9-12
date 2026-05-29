@@ -6,7 +6,7 @@
 # coach — then the sync workflow fills this in.
 - id: manual-2026-06-01-1700
   date: 2026-06-01
-  start_time: "17:00"
+  start_time: "12:30"
   end_time: ""
   location: ""
   focus: ""
