@@ -103,4 +103,12 @@ h3,
   .printable-gameplan .print-empty {
     color: #777;
   }
+  /* A cell whose player differs from the same cell in the previous inning —
+     i.e. a sub entering the lineup. Bold + a thicker black border so it
+     stands out cleanly on a black-and-white printer. No color reliance. */
+  .printable-gameplan td.print-change {
+    font-weight: 700;
+    border-width: 2px;
+    border-color: #000;
+  }
 }
