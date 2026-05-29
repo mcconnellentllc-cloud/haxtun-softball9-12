@@ -2631,6 +2631,115 @@ function draftDefense(players: Player[], depth: DepthChart): Defense {
   return innings;
 }
 
+// Print-only render of the selected game plan. Hidden on screen, visible only
+// when the user prints (see .printable-gameplan rules in globals.css). Defense
+// fills one page; batting starts on a new page (the back of the sheet). The
+// goal is a clean front-and-back hand-off to the bookkeeper / GameChanger
+// operator / announcer, replacing the 4-page browser print of the editor UI.
+function PrintableGamePlan({
+  plan,
+  byId,
+  game,
+  side,
+}: {
+  plan: GamePlan;
+  byId: Map<string, Player>;
+  game: Game | undefined;
+  side: Side;
+}) {
+  const fmt = (id: string) => {
+    if (!id) return <span className="print-empty">—</span>;
+    const p = byId.get(id);
+    if (!p) return <span className="print-empty">—</span>;
+    const j = p.jersey != null ? `#${p.jersey} ` : "";
+    return `${j}${p.firstName} ${p.lastName}`;
+  };
+  const matchup = game
+    ? `${game.home ? "vs" : "@"} ${game.opponent}`
+    : "Game";
+  const venue = game ? (game.home ? "Home" : "Away") : "";
+  const dateStr = game ? formatWeek(game.date) : "";
+  const meta = [matchup, dateStr, venue, sideLabel(side)]
+    .filter(Boolean)
+    .join(" · ");
+  const hasSubs = plan.subs.some((inn) =>
+    inn.some((s) => s.playerId !== ""),
+  );
+  return (
+    <div className="printable-gameplan">
+      <section className="print-page">
+        <header>
+          <h1>Haxtun Bulldogs — Defense</h1>
+          <p className="print-meta">{meta}</p>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th>Position</th>
+              {Array.from({ length: INNINGS }, (_, i) => (
+                <th key={i}>Inn {i + 1}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {POSITIONS.map((pos) => (
+              <tr key={pos}>
+                <th scope="row">{pos}</th>
+                {plan.defense.map((inn, i) => (
+                  <td key={i}>{fmt(inn[pos] ?? "")}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {hasSubs && (
+          <>
+            <h2>Mid-inning subs</h2>
+            <ul>
+              {plan.subs.flatMap((innSubs, i) =>
+                innSubs
+                  .filter((s) => s.playerId)
+                  .map((s, j) => (
+                    <li key={`${i}-${j}`}>
+                      Inning {i + 1}, after batter {s.afterBatter}:{" "}
+                      {fmt(s.playerId)} → {s.position}
+                    </li>
+                  )),
+              )}
+            </ul>
+          </>
+        )}
+      </section>
+      <section className="print-page">
+        <header>
+          <h1>Haxtun Bulldogs — Batting Order</h1>
+          <p className="print-meta">{meta}</p>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th>Slot</th>
+              {Array.from({ length: INNINGS }, (_, i) => (
+                <th key={i}>Inn {i + 1}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {SLOTS.map((slot) => (
+              <tr key={slot}>
+                <th scope="row">{slot}</th>
+                {plan.batting.map((inn, i) => (
+                  <td key={i}>{fmt(inn[slot] ?? "")}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  );
+}
+
 function GamePlanPanel({
   players,
   byId,
@@ -2667,11 +2776,21 @@ function GamePlanPanel({
   if (players.length === 0) return <EmptyRoster what="game plan" />;
 
   const ab: GamePlanAB = gameplans[week] ?? emptyGamePlanAB();
+  const game = SCHEDULE.find((g) => g.date === week);
 
   return (
     <section className="space-y-5">
       <GameSelect date={week} onSelect={setWeek} />
-      <SideToggle side={side} onSelect={setSide} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SideToggle side={side} onSelect={setSide} />
+        <button
+          onClick={() => window.print()}
+          title="Print a one-page front-and-back: defense on the front, batting order on the back"
+          className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 font-display text-sm tracking-wider text-neutral-200 hover:border-red-600"
+        >
+          🖨 Print Game Plan
+        </button>
+      </div>
 
       <NotesCard
         key={week}
@@ -2695,6 +2814,13 @@ function GamePlanPanel({
         onChange={(next) =>
           onChange({ ...gameplans, [week]: { ...ab, [side]: next } })
         }
+      />
+
+      <PrintableGamePlan
+        plan={ab[side]}
+        byId={byId}
+        game={game}
+        side={side}
       />
     </section>
   );
