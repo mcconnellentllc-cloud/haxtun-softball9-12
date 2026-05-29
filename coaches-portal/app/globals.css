@@ -17,3 +17,90 @@ h3,
   font-family: var(--font-display), "Arial Narrow", sans-serif;
   letter-spacing: 0.02em;
 }
+
+/* Printable game plan — hidden on screen, swapped in for printing.
+   Defense fills the front of the page; batting starts on a new page (back).
+   The bookkeeper / GameChanger / announcer get one front-and-back sheet. */
+@media screen {
+  .printable-gameplan {
+    display: none;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .printable-gameplan,
+  .printable-gameplan * {
+    visibility: visible;
+  }
+  .printable-gameplan {
+    position: absolute;
+    inset: 0;
+    background: white;
+    color: black;
+    padding: 0.4in;
+    font-family: system-ui, sans-serif;
+    font-size: 11pt;
+  }
+  .printable-gameplan .print-page {
+    page-break-after: always;
+  }
+  .printable-gameplan .print-page:last-child {
+    page-break-after: auto;
+  }
+  .printable-gameplan header {
+    border-bottom: 2px solid #000;
+    padding-bottom: 0.06in;
+    margin-bottom: 0.15in;
+  }
+  .printable-gameplan h1 {
+    font-size: 20pt;
+    margin: 0;
+    letter-spacing: 0.03em;
+  }
+  .printable-gameplan .print-meta {
+    font-size: 11pt;
+    margin: 0.03in 0 0;
+    color: #222;
+  }
+  .printable-gameplan h2 {
+    font-size: 13pt;
+    margin: 0.2in 0 0.05in;
+  }
+  .printable-gameplan table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .printable-gameplan th,
+  .printable-gameplan td {
+    border: 1px solid #444;
+    padding: 5px 7px;
+    text-align: left;
+    font-size: 10.5pt;
+    vertical-align: middle;
+  }
+  .printable-gameplan thead th,
+  .printable-gameplan tbody th {
+    background: #e8e8e8 !important;
+    text-align: center;
+    font-weight: bold;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .printable-gameplan tbody th {
+    width: 1.1in;
+  }
+  .printable-gameplan ul {
+    margin: 0;
+    padding-left: 1.2em;
+  }
+  .printable-gameplan li {
+    font-size: 10.5pt;
+    margin: 0.04in 0;
+  }
+  .printable-gameplan .print-empty {
+    color: #777;
+  }
+}
