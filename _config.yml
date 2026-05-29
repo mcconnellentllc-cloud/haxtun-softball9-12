@@ -5,6 +5,9 @@ description: Schedule, rules, roster, and updates for the Haxtun Bulldogs 9-12 g
 url: "https://mcconnellentllc-cloud.github.io"
 baseurl: "/haxtun-softball9-12"
 season: "2026"
+# Render post dates in our local time so a "20:30 -0600" post on game day
+# doesn't roll into the next UTC day in the news feed.
+timezone: America/Denver
 
 # Coaches portal (separate Next.js app deployed on Vercel). When set, the
 # red "H" logo becomes a hidden link to it; blank makes the H link home.
