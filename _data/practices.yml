@@ -4,4 +4,9 @@
 #
 # Empty until a practice is proposed in the portal and confirmed by another
 # coach — then the sync workflow fills this in.
-[]
+- id: manual-2026-06-01-1700
+  date: 2026-06-01
+  start_time: "17:00"
+  end_time: ""
+  location: ""
+  focus: ""

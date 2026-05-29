@@ -1705,18 +1705,40 @@ function PlanEditor({
 
       <MidInningSubsSection
         players={players}
+        defense={plan.defense}
         subs={plan.subs}
         isHome={isHome}
         onChange={(subs) => onChange({ ...plan, subs })}
       />
 
       <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
-        <h2 className="font-display text-2xl tracking-wider text-neutral-100">
-          Batting lineup{" "}
-          <span className="text-sm text-neutral-500">
-            ({BATTING_SLOTS} slots × {INNINGS} innings)
-          </span>
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+            Batting lineup{" "}
+            <span className="text-sm text-neutral-500">
+              ({BATTING_SLOTS} slots × {INNINGS} innings)
+            </span>
+          </h2>
+          <button
+            onClick={() => {
+              const inn1 = plan.batting[0] ?? {};
+              if (Object.keys(inn1).length === 0) {
+                setToast(
+                  "Inning 1 is empty — fill it first, then click to autofill the rest.",
+                );
+                return;
+              }
+              const batting = plan.batting.map((_, i) =>
+                i === 0 ? { ...inn1 } : { ...inn1 },
+              );
+              onChange({ ...plan, batting });
+              setToast("Innings 2–5 filled from Inning 1.");
+            }}
+            className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500"
+          >
+            Autofill from Inning 1
+          </button>
+        </div>
         <p className="mt-0.5 text-xs text-neutral-500">
           The order carries across innings — 9 bat per inning, so slot 10 leads
           off the next inning. By default the same lineup bats all game; swap a
@@ -1965,11 +1987,13 @@ function BattingGrid({
 // 6, both rotating positions) for the coach to fill with bench players.
 function MidInningSubsSection({
   players,
+  defense,
   subs,
   isHome,
   onChange,
 }: {
   players: Player[];
+  defense: Defense;
   subs: Subs;
   isHome: boolean;
   onChange: (next: Subs) => void;
@@ -1977,6 +2001,23 @@ function MidInningSubsSection({
   const [pos1, pos2] = rotationPair(isHome);
   const venue = isHome ? "Home" : "Away";
   const active = players.filter((p) => p.active);
+
+  // Players on the field at the moment a given sub fires: starters for the
+  // inning, with any earlier same-inning subs already applied (sorted by
+  // afterBatter, then by order in the list).
+  const onFieldAt = (inning: number, idx: number): Set<string> => {
+    const positionToId: Record<string, string> = {
+      ...(defense[inning] ?? {}),
+    };
+    const ordered = subs[inning]
+      .map((s, i) => ({ s, i }))
+      .sort((a, b) => a.s.afterBatter - b.s.afterBatter || a.i - b.i);
+    for (const { s, i } of ordered) {
+      if (i === idx) break;
+      if (s.playerId) positionToId[s.position] = s.playerId;
+    }
+    return new Set(Object.values(positionToId).filter((v) => !!v));
+  };
 
   const updateInning = (i: number, next: MidInningSub[]) => {
     onChange(subs.map((arr, idx) => (idx === i ? next : arr)));
@@ -2095,11 +2136,18 @@ function MidInningSubsSection({
                       className="min-w-[12rem] rounded border border-neutral-700 bg-black/40 px-2 py-1 text-sm text-neutral-200"
                     >
                       <option value="">— pick player —</option>
-                      {active.map((p) => (
+                      {(() => {
+                        const onField = onFieldAt(i, j);
+                        return active
+                          .filter(
+                            (p) => !onField.has(p.id) || p.id === s.playerId,
+                          )
+                          .map((p) => (
                         <option key={p.id} value={p.id}>
                           {jerseyTag(p)} {p.firstName} {p.lastName}
                         </option>
-                      ))}
+                          ));
+                      })()}
                     </select>
                     <button
                       onClick={() => removeSub(i, j)}
