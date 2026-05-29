@@ -2631,6 +2631,94 @@ function draftDefense(players: Player[], depth: DepthChart): Defense {
   return innings;
 }
 
+// Build a plain-text, SMS-friendly version of the game plan for copy-paste.
+// Format mirrors the print view: header, batting order, defense by inning,
+// mid-inning subs (if any), and the game note (if any).
+function buildGamePlanText(
+  plan: GamePlan,
+  byId: Map<string, Player>,
+  game: Game | undefined,
+  side: Side,
+  note: string,
+): string {
+  const lines: string[] = [];
+  const firstName = (id: string) => byId.get(id)?.firstName ?? "—";
+  const jerseyName = (id: string) => {
+    const p = byId.get(id);
+    if (!p) return "—";
+    const j = p.jersey != null ? `#${p.jersey} ` : "";
+    return `${j}${p.firstName} ${p.lastName}`;
+  };
+
+  lines.push(`HAXTUN BULLDOGS — ${sideLabel(side)}`);
+  const matchup = game ? `${game.home ? "vs" : "@"} ${game.opponent}` : "Game";
+  const dateStr = game ? formatWeek(game.date) : "";
+  const venue = game ? (game.home ? "Home" : "Away") : "";
+  const headLine = [dateStr, matchup, venue].filter(Boolean).join(" · ");
+  if (headLine) lines.push(headLine);
+  lines.push("");
+
+  lines.push("BATTING ORDER");
+  for (const slot of SLOTS) {
+    const id = plan.batting[0]?.[slot] ?? "";
+    lines.push(`${slot.padStart(2, " ")}. ${jerseyName(id)}`);
+  }
+  lines.push("");
+
+  lines.push("DEFENSE BY INNING (> marks a sub in)");
+  for (let i = 0; i < INNINGS; i++) {
+    const parts = POSITIONS.map((pos) => {
+      const cur = plan.defense[i]?.[pos] ?? "";
+      const prev = i > 0 ? (plan.defense[i - 1]?.[pos] ?? "") : "";
+      const changed = i > 0 && cur !== "" && cur !== prev;
+      return `${changed ? ">" : ""}${pos}-${firstName(cur)}`;
+    });
+    lines.push(`Inn ${i + 1}: ${parts.join(", ")}`);
+  }
+
+  // Group mid-inning subs by (inning, afterBatter) so co-located swaps share a line.
+  const subEntries: Array<{
+    inning: number;
+    batter: number;
+    subs: MidInningSub[];
+  }> = [];
+  for (let i = 0; i < INNINGS; i++) {
+    const innSubs = plan.subs[i].filter((s) => s.playerId);
+    if (innSubs.length === 0) continue;
+    const byBatter = new Map<number, MidInningSub[]>();
+    for (const s of innSubs) {
+      const arr = byBatter.get(s.afterBatter) ?? [];
+      arr.push(s);
+      byBatter.set(s.afterBatter, arr);
+    }
+    for (const [batter, subs] of [...byBatter.entries()].sort(
+      (a, b) => a[0] - b[0],
+    )) {
+      subEntries.push({ inning: i, batter, subs });
+    }
+  }
+  if (subEntries.length > 0) {
+    lines.push("");
+    lines.push("MID-INNING SUBS");
+    for (const e of subEntries) {
+      const parts = e.subs.map(
+        (s) => `${firstName(s.playerId)} → ${s.position}`,
+      );
+      lines.push(
+        `Inn ${e.inning + 1} after batter ${e.batter} — ${parts.join(", ")}`,
+      );
+    }
+  }
+
+  if (note.trim()) {
+    lines.push("");
+    lines.push("NOTES");
+    lines.push(note.trim());
+  }
+
+  return lines.join("\n");
+}
+
 // Print-only render of the selected game plan. Hidden on screen, visible only
 // when the user prints (see .printable-gameplan rules in globals.css). Defense
 // fills one page; batting starts on a new page (the back of the sheet). The
@@ -2641,11 +2729,13 @@ function PrintableGamePlan({
   byId,
   game,
   side,
+  note,
 }: {
   plan: GamePlan;
   byId: Map<string, Player>;
   game: Game | undefined;
   side: Side;
+  note: string;
 }) {
   const fmt = (id: string) => {
     if (!id) return <span className="print-empty">—</span>;
@@ -2665,6 +2755,18 @@ function PrintableGamePlan({
   const hasSubs = plan.subs.some((inn) =>
     inn.some((s) => s.playerId !== ""),
   );
+  // A cell is a "change" when a new player enters that position/slot vs the
+  // previous inning. Inning 1 is the starting lineup, so no comparison.
+  const changedDefense = (pos: string, i: number) => {
+    if (i === 0) return false;
+    const cur = plan.defense[i]?.[pos] ?? "";
+    return cur !== "" && cur !== (plan.defense[i - 1]?.[pos] ?? "");
+  };
+  const changedBatting = (slot: string, i: number) => {
+    if (i === 0) return false;
+    const cur = plan.batting[i]?.[slot] ?? "";
+    return cur !== "" && cur !== (plan.batting[i - 1]?.[slot] ?? "");
+  };
   return (
     <div className="printable-gameplan">
       <section className="print-page">
@@ -2686,7 +2788,12 @@ function PrintableGamePlan({
               <tr key={pos}>
                 <th scope="row">{pos}</th>
                 {plan.defense.map((inn, i) => (
-                  <td key={i}>{fmt(inn[pos] ?? "")}</td>
+                  <td
+                    key={i}
+                    className={changedDefense(pos, i) ? "print-change" : undefined}
+                  >
+                    {fmt(inn[pos] ?? "")}
+                  </td>
                 ))}
               </tr>
             ))}
@@ -2709,6 +2816,12 @@ function PrintableGamePlan({
             </ul>
           </>
         )}
+        {note.trim() && (
+          <>
+            <h2>Notes</h2>
+            <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{note}</p>
+          </>
+        )}
       </section>
       <section className="print-page">
         <header>
@@ -2729,7 +2842,12 @@ function PrintableGamePlan({
               <tr key={slot}>
                 <th scope="row">{slot}</th>
                 {plan.batting.map((inn, i) => (
-                  <td key={i}>{fmt(inn[slot] ?? "")}</td>
+                  <td
+                    key={i}
+                    className={changedBatting(slot, i) ? "print-change" : undefined}
+                  >
+                    {fmt(inn[slot] ?? "")}
+                  </td>
                 ))}
               </tr>
             ))}
@@ -2773,23 +2891,64 @@ function GamePlanPanel({
     [players],
   );
 
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle",
+  );
+
   if (players.length === 0) return <EmptyRoster what="game plan" />;
 
   const ab: GamePlanAB = gameplans[week] ?? emptyGamePlanAB();
   const game = SCHEDULE.find((g) => g.date === week);
+  const note = notes[week] ?? "";
+
+  const copyAsText = async () => {
+    const text = buildGamePlanText(ab[side], byId, game, side, note);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "absolute";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+    setTimeout(() => setCopyStatus("idle"), 2000);
+  };
 
   return (
     <section className="space-y-5">
       <GameSelect date={week} onSelect={setWeek} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SideToggle side={side} onSelect={setSide} />
-        <button
-          onClick={() => window.print()}
-          title="Print a one-page front-and-back: defense on the front, batting order on the back"
-          className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 font-display text-sm tracking-wider text-neutral-200 hover:border-red-600"
-        >
-          🖨 Print Game Plan
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={copyAsText}
+            title="Copy a SMS-friendly text version of this game plan to your clipboard"
+            className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 font-display text-sm tracking-wider text-neutral-200 hover:border-red-600"
+          >
+            {copyStatus === "copied"
+              ? "Copied ✓"
+              : copyStatus === "error"
+                ? "Copy failed"
+                : "📋 Copy to text"}
+          </button>
+          <button
+            onClick={() => window.print()}
+            title="Print a one-page front-and-back: defense on the front, batting order on the back"
+            className="rounded border border-neutral-700 bg-black/40 px-3 py-1.5 font-display text-sm tracking-wider text-neutral-200 hover:border-red-600"
+          >
+            🖨 Print Game Plan
+          </button>
+        </div>
       </div>
 
       <NotesCard
@@ -2821,6 +2980,7 @@ function GamePlanPanel({
         byId={byId}
         game={game}
         side={side}
+        note={note}
       />
     </section>
   );
