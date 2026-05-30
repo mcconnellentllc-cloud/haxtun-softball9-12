@@ -1093,6 +1093,13 @@ function ComparePanel({
 }) {
   const [week, setWeek] = useState<string>(() => defaultGameDate());
   const [side, setSide] = useState<Side>("A");
+  // Active = roster-wide active flag (mirrors GamePlanPanel). Used by the
+  // "Import Agreed Positions" button so a coach drafting their proposal can
+  // also seed from cross-coach consensus, not just their own depth chart.
+  const activeIds = useMemo(
+    () => new Set(players.filter((p) => p.active).map((p) => p.id)),
+    [players],
+  );
 
   if (players.length === 0) return <EmptyRoster what="comparison" />;
 
@@ -1146,6 +1153,7 @@ function ComparePanel({
             coach={coach}
             proposals={proposals}
             gameplans={gameplans}
+            consensus={{ coachDepths, activeIds }}
             onChange={(mine) =>
               onChange({
                 ...proposals,
@@ -1663,26 +1671,27 @@ function PlanEditor({
             Defense{" "}
             <span className="text-sm text-neutral-500">({INNINGS} innings)</span>
           </h2>
-          {consensus ? (
-            <button
-              onClick={() => setConfirmImport(true)}
-              disabled={importing}
-              className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500 disabled:opacity-60"
-            >
-              {importing ? "Importing…" : "Import Agreed Positions"}
-            </button>
-          ) : (
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={autoDraft}
               className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500"
             >
               {draftLabel}
             </button>
-          )}
+            {consensus && (
+              <button
+                onClick={() => setConfirmImport(true)}
+                disabled={importing}
+                className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500 disabled:opacity-60"
+              >
+                {importing ? "Importing…" : "Import Agreed Positions"}
+              </button>
+            )}
+          </div>
         </div>
         <p className="mt-0.5 text-xs text-neutral-500">
           {consensus
-            ? `Fills positions where 2 of 3 coaches agree (innings 1–${CONSENSUS_INNINGS}, active players only). Later innings stay blank for you to set rotation.`
+            ? `"${draftLabel}" leans on one depth chart; "Import Agreed Positions" fills positions where 2 of 3 coaches agree (innings 1–${CONSENSUS_INNINGS}, active players only). Adjust any cell below.`
             : "Drafts a fair rotation, then leans extra innings toward the strongest players. Adjust any cell below."}
         </p>
         <ImportControl
