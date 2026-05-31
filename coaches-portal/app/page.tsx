@@ -3805,7 +3805,9 @@ type RawBat = {
   pa?: number;
   ab?: number;
   h?: number;
+  r?: number;
   rbi?: number;
+  tob?: number;
   bb?: number;
   so?: number;
   hbp?: number;
@@ -4008,17 +4010,17 @@ function StatsPanel({ players }: { players: Player[] }) {
 
       <StatTable
         title="Batting"
-        headers={["Rank", "#", "Player", "PA", "AB", "H", "RBI", "BB", "HBP", "K", "AVG", "OBP", "OPS", "Score"]}
+        headers={["Rank", "#", "Player", "PA", "R", "H", "RBI", "TOB", "BB", "HBP", "K", "OBP", "OPS", "Score"]}
         empty={batting.length === 0 ? "No batting stats yet. Updated after each game." : null}
         legend={[
           ["PA", "plate appearances (AB + BB + HBP + SF + SH)"],
-          ["AB", "at-bats"],
+          ["R", "runs scored"],
           ["H", "hits"],
           ["RBI", "runs batted in"],
+          ["TOB", "times on base (H + BB + HBP)"],
           ["BB", "base on balls (walks)"],
           ["HBP", "hit by pitch"],
           ["K", "strikeouts"],
-          ["AVG", "batting average"],
           ["OBP", "on-base percentage"],
           ["OPS", "on-base plus slugging"],
           ["Score", "composite ranking (0–1)"],
@@ -4027,13 +4029,13 @@ function StatsPanel({ players }: { players: Player[] }) {
         {batting.map(({ row, score, active, rank }, idx) => (
           <StatRow key={`${row.jersey}-${idx}`} active={active} rank={rank} num={row.jersey} name={nameFor(row.jersey, row.name)} score={active ? score : null}>
             <StatCell>{statNum(row.pa)}</StatCell>
-            <StatCell>{statNum(row.ab)}</StatCell>
+            <StatCell>{statNum(row.r)}</StatCell>
             <StatCell>{statNum(row.h)}</StatCell>
             <StatCell>{statNum(row.rbi)}</StatCell>
+            <StatCell>{statNum(row.tob)}</StatCell>
             <StatCell>{statNum(row.bb)}</StatCell>
             <StatCell>{statNum(row.hbp)}</StatCell>
             <StatCell>{statNum(row.so)}</StatCell>
-            <StatCell>{String(row.avg ?? "—")}</StatCell>
             <StatCell>{String(row.obp ?? "—")}</StatCell>
             <StatCell>{String(row.ops ?? "—")}</StatCell>
           </StatRow>
