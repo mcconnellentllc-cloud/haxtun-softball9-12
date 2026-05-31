@@ -17,9 +17,9 @@ permalink: /stats/
   <thead>
     <tr>
       <th>#</th><th>Player</th>
-      <th class="num">PA</th><th class="num">AB</th><th class="num">H</th>
-      <th class="num">RBI</th><th class="num">BB</th><th class="num">HBP</th><th class="num">K</th>
-      <th class="num">AVG</th><th class="num">OBP</th><th class="num">OPS</th>
+      <th class="num">PA</th><th class="num">R</th><th class="num">H</th>
+      <th class="num">RBI</th><th class="num">TOB</th><th class="num">BB</th><th class="num">HBP</th><th class="num">K</th>
+      <th class="num">OBP</th><th class="num">OPS</th>
     </tr>
   </thead>
   <tbody>
@@ -28,13 +28,13 @@ permalink: /stats/
       <td class="num">{{ p.jersey }}</td>
       <td>{% if p.hidden %}<span style="color:#999">—</span>{% else %}{{ p.name }}{% endif %}</td>
       <td class="num">{{ p.pa }}</td>
-      <td class="num">{{ p.ab }}</td>
+      <td class="num">{{ p.r }}</td>
       <td class="num">{{ p.h }}</td>
       <td class="num">{{ p.rbi }}</td>
+      <td class="num">{{ p.tob }}</td>
       <td class="num">{{ p.bb }}</td>
       <td class="num">{{ p.hbp }}</td>
       <td class="num">{{ p.so }}</td>
-      <td class="num">{{ p.avg }}</td>
       <td class="num">{{ p.obp }}</td>
       <td class="num">{{ p.ops }}</td>
     </tr>
@@ -99,12 +99,12 @@ permalink: /stats/
 </div>
 
 <p style="color:#6b6b6b;font-size:.85rem">
-  <strong>PA</strong> plate appearances (AB + BB + HBP + SF + SH) ·
-  <strong>AB</strong> at-bats ·
+  <strong>PA</strong> plate appearances ·
+  <strong>R</strong> runs scored ·
+  <strong>TOB</strong> times on base (H + BB + HBP) ·
   <strong>BB</strong> walks ·
   <strong>HBP</strong> hit by pitch ·
   <strong>GP</strong> games played (pitching) ·
-  <strong>AVG</strong> batting average ·
   <strong>OBP</strong> on-base percentage ·
   <strong>OPS</strong> on-base plus slugging ·
   <strong>IP</strong> innings pitched ·

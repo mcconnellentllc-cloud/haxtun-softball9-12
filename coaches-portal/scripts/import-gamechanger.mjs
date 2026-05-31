@@ -130,6 +130,10 @@ function convert(csvText) {
     const pi = (k) => cell(r, pit[k]);
     const f = (k) => cell(r, fld[k]);
 
+    const h = int(b("H"));
+    const bb = int(b("BB"));
+    const hbp = int(b("HBP"));
+
     batting.push({
       jersey,
       name,
@@ -141,15 +145,18 @@ function convert(csvText) {
       obp: str(b("OBP")),
       ops: str(b("OPS")),
       slg: str(b("SLG")),
-      h: int(b("H")),
+      h,
       doubles: int(b("2B")),
       triples: int(b("3B")),
       hr: int(b("HR")),
       rbi: int(b("RBI")),
       r: int(b("R")),
-      bb: int(b("BB")),
+      bb,
       so: int(b("SO")),
-      hbp: int(b("HBP")),
+      hbp,
+      // Times on base — derived (H + BB + HBP). Surfaced in the batting table
+      // so the on-base credit a player got is visible alongside AVG/OBP/OPS.
+      tob: h + bb + hbp,
       sb: int(b("SB")),
       sb_pct: str(b("SB%")),
       qab: int(b("QAB")),
