@@ -33,7 +33,7 @@ games:
     opponent: "Imperial"
     location: "Haxtun Baseball Field"
     home: true
-    result: ""
+    result: "L 2-9"
     notes: ""
 
   - date: 2026-05-28
@@ -42,7 +42,7 @@ games:
     opponent: "Oshkosh"
     location: "Haxtun Baseball Field"
     home: true
-    result: ""
+    result: "L 4-6"
     notes: ""
 
   - date: 2026-06-02
@@ -51,8 +51,8 @@ games:
     opponent: "Ogallala"
     location: "Haxtun Baseball Field"
     home: true
-    result: ""
-    notes: ""
+    result: "W 5-2"
+    notes: "First win of the season"
 
   - date: 2026-06-04
     day: "Thu"
