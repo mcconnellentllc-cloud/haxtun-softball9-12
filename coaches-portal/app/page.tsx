@@ -2031,15 +2031,43 @@ function MidInningSubsSection({
   const venue = isHome ? "Home" : "Away";
   const active = players.filter((p) => p.active);
 
-  // Players in the batting lineup at the start of a given inning. League sub
-  // rule (per NFHS Rule 3): a player in the 12-slot lineup can freely move
-  // around the field; a player NOT in the lineup gets ONE defensive entry
-  // for the game. Surfacing this in the bench list + dropdowns helps the
-  // coach pick subs without losing a girl's eligibility.
-  const lineupAt = (inning: number): Set<string> =>
-    new Set(
-      Object.values(batting[inning] ?? {}).filter((v): v is string => !!v),
-    );
+  // Players who appear in the batting lineup at ANY inning in the plan.
+  // League sub rule: a player in the 12-slot lineup can freely move around
+  // the field; a player NOT in the lineup gets ONE defensive entry for the
+  // game. Computing the union (rather than per-inning) means a girl who
+  // entered the lineup mid-game (e.g. as a batting sub at inning 3) still
+  // counts as a lineup player for defensive sub eligibility throughout.
+  const everInLineup = new Set<string>();
+  for (const inn of batting) {
+    for (const v of Object.values(inn)) {
+      if (v) everInLineup.add(v);
+    }
+  }
+
+  // Has a bench-only player already used her one defensive entry elsewhere
+  // in this plan? Scans both the starting-defense grid (in case she's
+  // starting an inning at a position) and the mid-inning subs, excluding
+  // the sub row currently being edited so a coach can change the player
+  // assigned to a sub without their own pick flagging itself as "used".
+  const entryUsed = (
+    playerId: string,
+    excludeInning: number,
+    excludeSubIdx: number,
+  ): boolean => {
+    if (!playerId || everInLineup.has(playerId)) return false;
+    for (const inn of defense) {
+      for (const v of Object.values(inn)) {
+        if (v === playerId) return true;
+      }
+    }
+    for (let ii = 0; ii < subs.length; ii++) {
+      for (let jj = 0; jj < subs[ii].length; jj++) {
+        if (ii === excludeInning && jj === excludeSubIdx) continue;
+        if (subs[ii][jj].playerId === playerId) return true;
+      }
+    }
+    return false;
+  };
 
   // Players on the field at the moment a given sub fires: starters for the
   // inning, with any earlier same-inning subs already applied (sorted by
@@ -2132,10 +2160,9 @@ function MidInningSubsSection({
                   (v): v is string => !!v,
                 ),
               );
-              const lineup = lineupAt(i);
               const bench = active.filter((p) => !startingOnField.has(p.id));
-              const inLineup = bench.filter((p) => lineup.has(p.id));
-              const benchOnly = bench.filter((p) => !lineup.has(p.id));
+              const inLineup = bench.filter((p) => everInLineup.has(p.id));
+              const benchOnly = bench.filter((p) => !everInLineup.has(p.id));
               const fmt = (p: Player) =>
                 `${jerseyTag(p)} ${p.firstName}`;
               return (
@@ -2216,17 +2243,23 @@ function MidInningSubsSection({
                       <option value="">— pick player —</option>
                       {(() => {
                         const onField = onFieldAt(i, j);
-                        const lineup = lineupAt(i);
                         return active
                           .filter(
                             (p) => !onField.has(p.id) || p.id === s.playerId,
                           )
-                          .map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {jerseyTag(p)} {p.firstName} {p.lastName}
-                              {!lineup.has(p.id) ? " · bench only" : ""}
-                            </option>
-                          ));
+                          .map((p) => {
+                            const tag = everInLineup.has(p.id)
+                              ? ""
+                              : entryUsed(p.id, i, j)
+                                ? " · ENTRY USED"
+                                : " · bench only";
+                            return (
+                              <option key={p.id} value={p.id}>
+                                {jerseyTag(p)} {p.firstName} {p.lastName}
+                                {tag}
+                              </option>
+                            );
+                          });
                       })()}
                     </select>
                     <button
