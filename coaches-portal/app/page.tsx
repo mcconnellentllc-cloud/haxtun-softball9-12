@@ -1687,6 +1687,23 @@ function PlanEditor({
                 {importing ? "Importing…" : "Import Agreed Positions"}
               </button>
             )}
+            <button
+              onClick={() => {
+                const inn1 = plan.defense[0] ?? {};
+                if (Object.keys(inn1).length === 0) {
+                  setToast(
+                    "Inning 1 is empty — fill it first, then click to autofill the rest.",
+                  );
+                  return;
+                }
+                const defense = plan.defense.map(() => ({ ...inn1 }));
+                onChange({ ...plan, defense });
+                setToast("Innings 2–5 filled from Inning 1.");
+              }}
+              className="rounded bg-red-600 px-3 py-1.5 font-display text-sm tracking-wider text-white hover:bg-red-500"
+            >
+              Autofill from Inning 1
+            </button>
           </div>
         </div>
         <p className="mt-0.5 text-xs text-neutral-500">
