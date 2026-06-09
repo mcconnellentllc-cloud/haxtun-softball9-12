@@ -4015,12 +4015,16 @@ function StatsPanel({ players }: { players: Player[] }) {
     );
   if (!data) return null;
 
+  // Composite batting SCORE = normalized average of OBP + TOB + R + RBI.
+  // Drops AVG (not meaningful for 9-12 with our walks-and-HBP profile) and
+  // hits (already inside OBP/TOB; was double-counting). Adds R and TOB so
+  // table-setters and producers both get credit, not just hit-makers.
   const batting = rankRows(
     data.batting ?? [],
     [
-      (b) => statNum(b.avg),
       (b) => statNum(b.obp),
-      (b) => statNum(b.h),
+      (b) => statNum(b.tob),
+      (b) => statNum(b.r),
       (b) => statNum(b.rbi),
     ],
     (b) => statNum(b.ab) > 0,
