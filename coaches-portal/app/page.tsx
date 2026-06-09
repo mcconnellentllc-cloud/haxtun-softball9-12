@@ -2096,6 +2096,28 @@ function MidInningSubsSection({
                 </button>
               </div>
             </div>
+            {(() => {
+              const startingOnField = new Set(
+                Object.values(defense[i] ?? {}).filter(
+                  (v): v is string => !!v,
+                ),
+              );
+              const bench = active.filter((p) => !startingOnField.has(p.id));
+              return (
+                <p className="mt-1 text-xs text-neutral-500">
+                  <span className="text-neutral-400">On the bench:</span>{" "}
+                  {bench.length === 0 ? (
+                    <em className="text-neutral-600">
+                      No bench at the start of this inning.
+                    </em>
+                  ) : (
+                    bench
+                      .map((p) => `${jerseyTag(p)} ${p.firstName}`)
+                      .join(", ")
+                  )}
+                </p>
+              );
+            })()}
             {innSubs.length === 0 ? (
               <p className="mt-2 text-xs text-neutral-600">
                 No mid-inning subs.
