@@ -1732,6 +1732,7 @@ function PlanEditor({
       <MidInningSubsSection
         players={players}
         defense={plan.defense}
+        batting={plan.batting}
         subs={plan.subs}
         isHome={isHome}
         onChange={(subs) => onChange({ ...plan, subs })}
@@ -2014,12 +2015,14 @@ function BattingGrid({
 function MidInningSubsSection({
   players,
   defense,
+  batting,
   subs,
   isHome,
   onChange,
 }: {
   players: Player[];
   defense: Defense;
+  batting: Batting;
   subs: Subs;
   isHome: boolean;
   onChange: (next: Subs) => void;
@@ -2027,6 +2030,16 @@ function MidInningSubsSection({
   const [pos1, pos2] = rotationPair(isHome);
   const venue = isHome ? "Home" : "Away";
   const active = players.filter((p) => p.active);
+
+  // Players in the batting lineup at the start of a given inning. League sub
+  // rule (per NFHS Rule 3): a player in the 12-slot lineup can freely move
+  // around the field; a player NOT in the lineup gets ONE defensive entry
+  // for the game. Surfacing this in the bench list + dropdowns helps the
+  // coach pick subs without losing a girl's eligibility.
+  const lineupAt = (inning: number): Set<string> =>
+    new Set(
+      Object.values(batting[inning] ?? {}).filter((v): v is string => !!v),
+    );
 
   // Players on the field at the moment a given sub fires: starters for the
   // inning, with any earlier same-inning subs already applied (sorted by
@@ -2119,20 +2132,37 @@ function MidInningSubsSection({
                   (v): v is string => !!v,
                 ),
               );
+              const lineup = lineupAt(i);
               const bench = active.filter((p) => !startingOnField.has(p.id));
+              const inLineup = bench.filter((p) => lineup.has(p.id));
+              const benchOnly = bench.filter((p) => !lineup.has(p.id));
+              const fmt = (p: Player) =>
+                `${jerseyTag(p)} ${p.firstName}`;
               return (
-                <p className="mt-1 text-xs text-neutral-500">
-                  <span className="text-neutral-400">On the bench:</span>{" "}
-                  {bench.length === 0 ? (
-                    <em className="text-neutral-600">
-                      No bench at the start of this inning.
-                    </em>
-                  ) : (
-                    bench
-                      .map((p) => `${jerseyTag(p)} ${p.firstName}`)
-                      .join(", ")
-                  )}
-                </p>
+                <div className="mt-1 space-y-0.5 text-xs text-neutral-500">
+                  <p>
+                    <span className="text-neutral-400">In lineup:</span>{" "}
+                    {inLineup.length === 0 ? (
+                      <em className="text-neutral-600">none</em>
+                    ) : (
+                      inLineup.map(fmt).join(", ")
+                    )}{" "}
+                    <span className="text-neutral-600">
+                      — can sub in defense any time
+                    </span>
+                  </p>
+                  <p>
+                    <span className="text-neutral-400">Bench only:</span>{" "}
+                    {benchOnly.length === 0 ? (
+                      <em className="text-neutral-600">none</em>
+                    ) : (
+                      benchOnly.map(fmt).join(", ")
+                    )}{" "}
+                    <span className="text-neutral-600">
+                      — one defensive entry per game
+                    </span>
+                  </p>
+                </div>
               );
             })()}
             {innSubs.length === 0 ? (
@@ -2186,14 +2216,16 @@ function MidInningSubsSection({
                       <option value="">— pick player —</option>
                       {(() => {
                         const onField = onFieldAt(i, j);
+                        const lineup = lineupAt(i);
                         return active
                           .filter(
                             (p) => !onField.has(p.id) || p.id === s.playerId,
                           )
                           .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {jerseyTag(p)} {p.firstName} {p.lastName}
-                        </option>
+                            <option key={p.id} value={p.id}>
+                              {jerseyTag(p)} {p.firstName} {p.lastName}
+                              {!lineup.has(p.id) ? " · bench only" : ""}
+                            </option>
                           ));
                       })()}
                     </select>
