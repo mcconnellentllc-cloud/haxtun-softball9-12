@@ -1738,6 +1738,8 @@ function PlanEditor({
         onChange={(subs) => onChange({ ...plan, subs })}
       />
 
+      <EligibilityPanel players={players} plan={plan} />
+
       <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-2xl tracking-wider text-neutral-100">
@@ -2315,6 +2317,158 @@ function BenchPool({ bench }: { bench: Player[] }) {
 
 // Playing-time tally for a plan: field innings + at-bats per girl, flagging
 // anyone below the minimum.
+// Per-player rules-compliance check: lineup state, defensive innings played
+// (starting alignment + any mid-inning sub appearance), and entry/re-entry
+// eligibility under the league sub rule.
+//   - "Lineup, slot N" — in same slot inn 1 through inn 5
+//   - "Lineup slot N (entered inn M)" — joined the order mid-game
+//   - "Pulled at inn M, slot N (can re-enter)" — starter lost her slot
+//   - "Re-entered, slot N" — pulled then returned to original slot
+//   - "Bench, available" — not in lineup, hasn't taken a defensive entry
+//   - "Bench, ENTRY USED" — not in lineup, already played somewhere on plan
+function EligibilityPanel({
+  players,
+  plan,
+}: {
+  players: Player[];
+  plan: GamePlan;
+}) {
+  type StatusKind =
+    | "starter"
+    | "rentered"
+    | "midgame"
+    | "pulled"
+    | "bench-used"
+    | "bench-avail";
+
+  const active = players.filter((p) => p.active);
+
+  const rows = active.map((p) => {
+    // Player's batting slot per inning (null when not in the lineup that inning).
+    const slots: (number | null)[] = plan.batting.map((inn) => {
+      for (const [slot, pid] of Object.entries(inn)) {
+        if (pid === p.id) return Number(slot);
+      }
+      return null;
+    });
+
+    // Innings she's on the field — starting defense OR any mid-inning sub.
+    const defInnings: number[] = [];
+    for (let i = 0; i < INNINGS; i++) {
+      const inDefense = Object.values(plan.defense[i] ?? {}).includes(p.id);
+      const inSub = (plan.subs[i] ?? []).some((s) => s.playerId === p.id);
+      if (inDefense || inSub) defInnings.push(i + 1);
+    }
+
+    const everInLineup = slots.some((s) => s !== null);
+    let status = "";
+    let kind: StatusKind = "bench-avail";
+
+    if (!everInLineup) {
+      const usedInDefense = plan.defense.some((inn) =>
+        Object.values(inn).includes(p.id),
+      );
+      const usedInSub = plan.subs.some((innSubs) =>
+        innSubs.some((s) => s.playerId === p.id),
+      );
+      if (usedInDefense || usedInSub) {
+        status = "Bench · ENTRY USED";
+        kind = "bench-used";
+      } else {
+        status = "Bench · available";
+        kind = "bench-avail";
+      }
+    } else {
+      const firstSlot = slots[0];
+      const finalSlot = slots[slots.length - 1];
+      if (firstSlot !== null && slots.every((s) => s === firstSlot)) {
+        status = `Lineup · slot ${firstSlot}`;
+        kind = "starter";
+      } else if (firstSlot !== null) {
+        const lostAt = slots.findIndex((s, i) => i > 0 && s !== firstSlot);
+        if (finalSlot === firstSlot) {
+          status = `Re-entered · slot ${firstSlot}`;
+          kind = "rentered";
+        } else {
+          status = `Pulled at inn ${lostAt + 1} · slot ${firstSlot} (can re-enter)`;
+          kind = "pulled";
+        }
+      } else {
+        const enterAt = slots.findIndex((s) => s !== null);
+        const slot = slots[enterAt];
+        status = `Lineup · slot ${slot} (entered inn ${enterAt + 1})`;
+        kind = "midgame";
+      }
+    }
+
+    return { p, status, kind, defInnings };
+  });
+
+  // Sort: lineup states first, then mid-game, pulled, used, available.
+  const order: Record<StatusKind, number> = {
+    starter: 0,
+    rentered: 1,
+    midgame: 2,
+    pulled: 3,
+    "bench-used": 4,
+    "bench-avail": 5,
+  };
+  rows.sort(
+    (a, b) =>
+      order[a.kind] - order[b.kind] ||
+      (a.p.jersey ?? 9999) - (b.p.jersey ?? 9999),
+  );
+
+  const kindColor: Record<StatusKind, string> = {
+    starter: "text-emerald-400",
+    rentered: "text-emerald-300",
+    midgame: "text-sky-300",
+    pulled: "text-amber-300",
+    "bench-used": "text-red-400",
+    "bench-avail": "text-neutral-300",
+  };
+
+  return (
+    <div className="rounded border border-neutral-800 bg-neutral-900 p-4">
+      <h2 className="font-display text-2xl tracking-wider text-neutral-100">
+        Eligibility
+      </h2>
+      <p className="mt-0.5 text-xs text-neutral-500">
+        League sub rule at a glance. A player in the {BATTING_SLOTS}-slot
+        lineup can sub freely on defense; a player NOT in the lineup gets
+        one entry. A pulled starter can re-enter once to her original slot.
+      </p>
+      <ul className="mt-3 divide-y divide-neutral-800">
+        {rows.map(({ p, status, kind, defInnings }) => (
+          <li
+            key={p.id}
+            className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm"
+          >
+            <span className="min-w-0 truncate">
+              <PlayerName p={p} />
+            </span>
+            <span className="flex shrink-0 flex-wrap items-center gap-4">
+              <span
+                className={
+                  "font-display text-xs tracking-wider " + kindColor[kind]
+                }
+              >
+                {status}
+              </span>
+              <span className="text-neutral-400">
+                <span className="text-neutral-100">
+                  {defInnings.length === 0 ? "—" : defInnings.join(", ")}
+                </span>{" "}
+                <span className="text-neutral-500">def</span>
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function PlayingTime({
   players,
   byId,
