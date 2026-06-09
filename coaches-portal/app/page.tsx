@@ -1817,6 +1817,25 @@ function DefenseGrid({
     onCellTouched?.(inning, pos);
   };
 
+  // Push the Inning 1 player at this position through innings 2-5. If that
+  // player is currently at a different position in a later inning, drop her
+  // from that other position so she isn't double-booked. No-ops if Inning 1
+  // is empty for this position.
+  const autofillRow = (pos: string) => {
+    const inn1Val = defense[0]?.[pos] ?? "";
+    if (!inn1Val) return;
+    const next = defense.map((d, i) => {
+      if (i === 0) return d;
+      const copy: Record<string, string> = { ...d };
+      for (const [k, v] of Object.entries(copy)) {
+        if (k !== pos && v === inn1Val) delete copy[k];
+      }
+      copy[pos] = inn1Val;
+      return copy;
+    });
+    onChange(next);
+  };
+
   return (
     <>
     <div className="mt-3 overflow-x-auto">
@@ -1839,8 +1858,18 @@ function DefenseGrid({
         <tbody>
           {POSITIONS.map((pos) => (
             <tr key={pos} className="border-t border-neutral-800">
-              <th className="px-2 py-1 text-left font-display text-lg tracking-wider text-red-500">
+              <th className="whitespace-nowrap px-2 py-1 text-left font-display text-lg tracking-wider text-red-500">
                 {pos}
+                <button
+                  type="button"
+                  onClick={() => autofillRow(pos)}
+                  disabled={!defense[0]?.[pos]}
+                  title="Push Inning 1 across all innings"
+                  aria-label={`Autofill ${pos} across innings from Inning 1`}
+                  className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded border border-neutral-700 align-middle text-xs font-normal text-neutral-400 hover:border-red-600 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  →
+                </button>
               </th>
               {Array.from({ length: INNINGS }, (_, inning) => {
                 const current = defense[inning]?.[pos] ?? "";
@@ -1933,6 +1962,24 @@ function BattingGrid({
   const starters = new Set(Object.values(batting[0] ?? {}));
   const bench = players.filter((p) => !starters.has(p.id));
 
+  // Push the Inning 1 batter at this slot through innings 2-5. If the same
+  // girl is currently in a different slot in a later inning, drop her from
+  // that other slot to avoid double-booking.
+  const autofillRow = (slot: string) => {
+    const inn1Val = batting[0]?.[slot] ?? "";
+    if (!inn1Val) return;
+    const next = batting.map((b, i) => {
+      if (i === 0) return b;
+      const copy: Record<string, string> = { ...b };
+      for (const [k, v] of Object.entries(copy)) {
+        if (k !== slot && v === inn1Val) delete copy[k];
+      }
+      copy[slot] = inn1Val;
+      return copy;
+    });
+    onChange(next);
+  };
+
   return (
     <>
       <div className="mt-3 overflow-x-auto">
@@ -1955,8 +2002,18 @@ function BattingGrid({
           <tbody>
             {SLOTS.map((slot) => (
               <tr key={slot} className="border-t border-neutral-800">
-                <th className="px-2 py-1 text-left font-display text-lg tracking-wider text-red-500">
+                <th className="whitespace-nowrap px-2 py-1 text-left font-display text-lg tracking-wider text-red-500">
                   {slot}
+                  <button
+                    type="button"
+                    onClick={() => autofillRow(slot)}
+                    disabled={!batting[0]?.[slot]}
+                    title="Push Inning 1 across all innings"
+                    aria-label={`Autofill slot ${slot} across innings from Inning 1`}
+                    className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded border border-neutral-700 align-middle text-xs font-normal text-neutral-400 hover:border-red-600 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    →
+                  </button>
                 </th>
                 {Array.from({ length: INNINGS }, (_, inning) => {
                   const current = batting[inning]?.[slot] ?? "";
