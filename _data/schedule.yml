@@ -69,8 +69,8 @@ games:
     opponent: "Grant"
     location: "Haxtun Baseball Field"
     home: true
-    result: ""
-    notes: ""
+    result: "W 7-6"
+    notes: "Walk-off win — Tyndle M. RBI single in the bottom of the 5th"
 
   - date: 2026-06-11
     day: "Thu"
