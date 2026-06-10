@@ -153,7 +153,8 @@ DTSTART;TZID=America/Denver:20260609T180000
 DTEND;TZID=America/Denver:20260609T193000
 SUMMARY:Bulldogs vs Grant
 LOCATION:Haxtun Baseball Field\, Haxtun\, CO
-DESCRIPTION:Bulldogs Softball - 2026 Season | Coach Emily Anderson
+DESCRIPTION:Bulldogs Softball - 2026 Season | Walk-off win — Tyndle M. RB
+ I single in the bottom of the 5th | Coach Emily Anderson
 STATUS:CONFIRMED
 BEGIN:VALARM
 ACTION:DISPLAY
