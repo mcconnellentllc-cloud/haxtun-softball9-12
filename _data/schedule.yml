@@ -25,7 +25,7 @@ games:
     location: "Holyoke, CO"
     home: false
     result: ""
-    notes: ""
+    notes: "Rescheduled — make-up game now Fri 6/19"
 
   - date: 2026-05-26
     day: "Tue"
@@ -88,7 +88,7 @@ games:
     location: "Yuma, CO"
     home: false
     result: ""
-    notes: ""
+    notes: "Cancelled"
 
   - date: 2026-06-18
     day: "Thu"
@@ -97,7 +97,16 @@ games:
     location: "Sidney, NE"
     home: false
     result: ""
-    notes: "Final regular-season game"
+    notes: ""
+
+  - date: 2026-06-19
+    day: "Fri"
+    time: "6:00 PM"
+    opponent: "Holyoke"
+    location: "Holyoke, CO"
+    home: false
+    result: ""
+    notes: "Make-up game for cancelled 5/21 · final regular-season game"
 
   - date: 2026-06-22
     day: "Mon"

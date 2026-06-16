@@ -52,7 +52,8 @@ DTSTART;TZID=America/Denver:20260521T180000
 DTEND;TZID=America/Denver:20260521T193000
 SUMMARY:Bulldogs @ Holyoke
 LOCATION:Holyoke\, CO
-DESCRIPTION:Bulldogs Softball - 2026 Season | Coach Emily Anderson
+DESCRIPTION:Bulldogs Softball - 2026 Season | Rescheduled — make-up game 
+ now Fri 6/19 | Coach Emily Anderson
 STATUS:CONFIRMED
 BEGIN:VALARM
 ACTION:DISPLAY
@@ -174,7 +175,8 @@ DTSTART;TZID=America/Denver:20260616T180000
 DTEND;TZID=America/Denver:20260616T193000
 SUMMARY:Bulldogs @ Yuma
 LOCATION:Yuma\, CO
-DESCRIPTION:Bulldogs Softball - 2026 Season | Coach Emily Anderson
+DESCRIPTION:Bulldogs Softball - 2026 Season | Cancelled | Coach Emily Ander
+ son
 STATUS:CONFIRMED
 BEGIN:VALARM
 ACTION:DISPLAY
@@ -194,8 +196,7 @@ DTSTART;TZID=America/Denver:20260618T180000
 DTEND;TZID=America/Denver:20260618T193000
 SUMMARY:Bulldogs @ Sidney
 LOCATION:Sidney\, NE
-DESCRIPTION:Bulldogs Softball - 2026 Season | Final regular-season game | C
- oach Emily Anderson
+DESCRIPTION:Bulldogs Softball - 2026 Season | Coach Emily Anderson
 STATUS:CONFIRMED
 BEGIN:VALARM
 ACTION:DISPLAY
@@ -205,6 +206,27 @@ END:VALARM
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:Bulldogs @ Sidney - 2 hour reminder
+TRIGGER:-PT2H
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:3e1df75eaafc773be4eeebb3b6e79192@haxtun-bulldogs
+DTSTAMP:20260101T000000Z
+DTSTART;TZID=America/Denver:20260619T180000
+DTEND;TZID=America/Denver:20260619T193000
+SUMMARY:Bulldogs @ Holyoke
+LOCATION:Holyoke\, CO
+DESCRIPTION:Bulldogs Softball - 2026 Season | Make-up game for cancelled 5/
+ 21 · final regular-season game | Coach Emily Anderson
+STATUS:CONFIRMED
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Bulldogs @ Holyoke - 1 day reminder
+TRIGGER:-P1D
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Bulldogs @ Holyoke - 2 hour reminder
 TRIGGER:-PT2H
 END:VALARM
 END:VEVENT
