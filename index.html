@@ -42,6 +42,35 @@ permalink: /
 </section>
 
 <div class="wrap">
+  <h2 style="margin:0 0 1rem">Season So Far</h2>
+  <div class="cards" style="margin-top:0;margin-bottom:2rem">
+    <div class="card">
+      <p style="margin:0 0 .35rem;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--red)">Record</p>
+      <p style="margin:0;font-family:var(--font-display);font-size:3rem;line-height:1">{{ site.data.stats.team_record }}</p>
+      <p style="margin:.4rem 0 0;color:#6b6b6b;font-size:.9rem">through {{ site.data.stats.games_played }} games</p>
+    </div>
+    <div class="card">
+      <p style="margin:0 0 .35rem;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--red)">Runs</p>
+      <p style="margin:0;font-family:var(--font-display);font-size:2.25rem;line-height:1.05">{{ site.data.stats.runs_for }} <span style="color:#6b6b6b">/</span> {{ site.data.stats.runs_against }}</p>
+      <p style="margin:.4rem 0 0;color:#6b6b6b;font-size:.9rem">scored / allowed</p>
+    </div>
+    <div class="card">
+      <p style="margin:0 0 .35rem;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--red)">Team Plate</p>
+      <p style="margin:0;font-family:var(--font-display);font-size:2.25rem;line-height:1.05">{{ site.data.stats.team_avg }} <span style="color:#6b6b6b;font-size:1rem">AVG</span></p>
+      <p style="margin:.4rem 0 0;color:#6b6b6b;font-size:.9rem">{{ site.data.stats.team_obp }} OBP</p>
+    </div>
+    <a class="card" href="{{ '/stats/' | relative_url }}">
+      <p style="margin:0 0 .5rem;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--red)">Top AVG</p>
+      {% for L in site.data.stats.leaders_avg %}
+      <p style="margin:.1rem 0;display:flex;justify-content:space-between;align-items:baseline">
+        <span><span style="color:#6b6b6b">#{{ L.jersey }}</span> {% if L.hidden %}<span style="color:#999">—</span>{% else %}{{ L.name }}{% endif %}</span>
+        <span style="font-family:var(--font-display);font-size:1.15rem">{{ L.val }}</span>
+      </p>
+      {% endfor %}
+      <p style="margin:.5rem 0 0"><span class="card__arrow">→ All stats</span></p>
+    </a>
+  </div>
+
   <div class="cards">
     <a class="card" href="{{ '/assets/calendar/haxtun-bulldogs-2026.ics' | relative_url }}" download>
       <h3>📅 Add to Calendar</h3>
@@ -151,11 +180,11 @@ permalink: /
 
   <h2>Season Leaders <span style="color:#6b6b6b;font-weight:400;font-size:.7em">Through {{ site.data.stats.games_played }} games</span></h2>
   <ul class="news-list">
-    <li><strong>Tyndle M.</strong> — team-leading 6 hits, .500 AVG, 1.071 OPS</li>
-    <li><strong>Oakley M.</strong> — team-leading 5 RBI</li>
-    <li><strong>Phoenix B.</strong> — team-leading 6 runs scored, 6 stolen bases, plus 9 strikeouts over 4 innings from the Grant start</li>
-    <li><strong>Palmer H.</strong> — 50 putouts (team high), 8 walks</li>
-    <li><strong>Delaney P.</strong> — .636 OBP, 7 walks</li>
+    <li><strong>Tyndle M.</strong> — team-leading 6 hits, .462 AVG, 1.024 OPS</li>
+    <li><strong>Oakley M.</strong> — tied for team-leading 5 RBI (with Pyper J.)</li>
+    <li><strong>Phoenix B.</strong> — team-leading 8 runs scored, 8 stolen bases, plus 9 strikeouts over 4 innings from the Grant start</li>
+    <li><strong>Palmer H.</strong> — 56 putouts and 10 walks (both team highs)</li>
+    <li><strong>Delaney P.</strong> — .667 OBP, 8 walks</li>
     <li><strong>Kortlyn C.</strong> — 12.0 innings pitched, 29 strikeouts in the circle</li>
   </ul>
   <p style="color:#6b6b6b;font-size:.85rem;margin-top:.4rem"><a href="{{ '/stats/' | relative_url }}">Full team stats →</a></p>

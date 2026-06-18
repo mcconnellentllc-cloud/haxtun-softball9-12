@@ -1,241 +1,75 @@
-# Haxtun Bulldogs — season stats
-# Generated from a GameChanger CSV export by
-# coaches-portal/scripts/import-gamechanger.mjs — do not hand-edit;
-# re-run the importer after each game (see coaches-portal/SETUP.md).
+# Haxtun Bulldogs 9-12 — 2026 Stats (from GameChanger, 7-game totals)
+# Update after each game.
 #
-# Jersey #23 is name-withheld on the public site (hidden: true). Do not
-# add a real name here — the private coaches portal resolves it from Airtable.
-#
-# GameChanger glossary:
-#   GP=Games played
-#   PA=Plate appearances
-#   AB=At bats
-#   AVG=Batting average
-#   OBP=On-base percentage
-#   OPS=On-base percentage plus slugging percentage
-#   SLG=Slugging percentage
-#   H=Hits
-#   1B=Singles
-#   2B=Doubles
-#   3B=Triples
-#   HR=Home runs
-#   RBI=Runs batted in
-#   R=Runs scored
-#   BB=Base on balls (walks)
-#   SO=Strikeouts
-#   K-L=Strikeouts looking
-#   HBP=Hit by pitch
-#   SAC=Sacrifice hits & bunts
-#   SF=Sacrifice flies
-#   ROE=Reached on error
-#   FC=Hit into fielder's choice
-#   SB=Stolen bases
-#   SB%=Stolen base percentage
-#   CS=Caught stealing
-#   PIK=Picked off
-#   QAB=Quality at bats (any one of: 3 pitches after 2 strikes, 6+ pitch ABs, XBH, HHB, BB, SAC Bunt, SAC Fly)
-#   QAB%=Quality at bats per plate appearance
-#   PA/BB=Plate appearances per walk
-#   BB/K=Walks per strikeout
-#   C%=Contact percentage/Contact rate: AB-K/AB
-#   HHB=Hard hit balls: Total line drives and hard ground balls
-#   LD%=Line drive percentage
-#   FB%=Fly ball percentage
-#   GB%=Ground ball percentage
-#   BABIP=Batting average on balls in play
-#   BA/RISP=Batting average with runners in scoring position
-#   LOB=Runners left on base
-#   2OUTRBI=2-out RBI
-#   XBH=Extra-base hits
-#   TB=Total bases
-#   PS=Pitches seen
-#   PS/PA=Pitches seen per plate appearance
-#   2S+3=Plate appearances in which batter sees 3+ pitches after 2 strikes
-#   2S+3%=% of plate appearances in which batter sees 3+ pitches after 2 strikes
-#   6+=Plate appearances with 6+ pitches
-#   6+%=% of plate appearances of 6+ pitches
-#   AB/HR=At bats per home run
-#   GIDP=Hit into double play
-#   GITP=Hit into triple play
-#   CI=Batter advances on catcher's interference
-#   IP=Innings pitched
-#   GP=Games pitched
-#   GS=Games started
-#   BF=Total batters faced
-#   #P=Total pitches
-#   W=Wins
-#   L=Losses
-#   SV=Saves
-#   SVO=Save opportunities
-#   BS=Blown saves
-#   SV%=Save percentage
-#   H=Hits allowed
-#   R=Runs allowed
-#   ER=Earned runs allowed
-#   HBP=Hit batters
-#   ERA=Earned run average
-#   WHIP=Walks plus hits per innings pitched
-#   BK=Balks
-#   PIK=Runners picked off
-#   CS=Runners caught stealing
-#   SB=Stolen bases allowed
-#   SB%=Stolen bases allowed percentage
-#   WP=Wild pitches
-#   BAA=Opponent batting average
-#   MPHFB=Fastball average velocity
-#   MPHCT=Cutter average velocity
-#   MPHCB=Curveball average velocity
-#   MPHSL=Slider average velocity
-#   MPHCH=Changeup average velocity
-#   MPHOS=Offspeed average velocity
-#   P/IP=Pitches per inning
-#   P/BF=Pitches per batter faced
-#   <3%=% of batters on or out in three pitches or less
-#   LOO=Leadoff out (1st batter of inning)
-#   1ST2OUT=Innings with 1st 2 batters out
-#   123INN=1-2-3 Innings
-#   <13=Innings of 13 pitches or fewer
-#   FIP=Fielding Independent Pitching
-#   S%=Strike percentage
-#   FPS%=First pitch strike percentage
-#   FPSO%=% of FPS at-bats that result in an out
-#   FPSW%=% of FPS at-bats that result in a walk
-#   FPSH%=% of FPS at-bats that result in a hit
-#   BB/INN=Walks per inning
-#   0BBINN=Zero-walk innings
-#   BBS=Walks that score
-#   LOBB=Leadoff walk (1st batter of inning)
-#   LOBBS=Leadoff walk that scored (1st batter of inning)
-#   SM%=% of total pitches that are swings and misses
-#   K/BF=Strikeouts per batter faced
-#   K/BB=Strikeouts per walk
-#   WEAK%=% of batted balls weakly hit (fly balls and ground balls)
-#   HHB%=% of batted balls that are line drives or hard ground balls
-#   GO/AO=Ratio of ground outs to air outs
-#   HR=Home runs allowed
-#   GB%=% of all batted balls hit on the ground
-#   BABIP=Opponent batting average on balls in play
-#   BA/RISP=Opponent batting average with runners in scoring position
-#   FB=Number of pitches thrown as Fastballs
-#   FBS=Number of Fastballs thrown for strikes
-#   FBS%=Percentage of Fastballs thrown for strikes
-#   FBSW%=Percentage of Fastballs swung at
-#   FBSM%=Percentage of Fastballs swung at and missed
-#   CH=Number of pitches thrown as Changeups
-#   CHS=Number of Changeups thrown for strikes
-#   CHS%=Percentage of Changeups thrown for strikes
-#   CHSW%=Percentage of Changeups swung at
-#   CHSM%=Percentage of Changeups swung at and missed
-#   RB=Number of pitches thrown as Riseballs
-#   RBS=Number of Riseballs thrown for strikes
-#   RBS%=Percentage of Riseballs thrown for strikes
-#   RBSW%=Percentage of Riseballs swung at
-#   RBSM%=Percentage of Riseballs swung at and missed
-#   MPHRB=Riseball average velocity
-#   DB=Number of pitches thrown as Dropballs
-#   DBS=Number of Dropballs thrown for strikes
-#   DBS%=Percentage of Dropballs thrown for strikes
-#   DBSW%=Percentage of Dropballs swung at
-#   DBSM%=Percentage of Dropballs swung at and missed
-#   MPHDB=Dropball average velocity
-#   SC=Number of pitches thrown as Screwballs
-#   SCS=Number of Screwballs thrown for strikes
-#   SCS%=Percentage of Screwballs thrown for strikes
-#   SCSW%=Percentage of Screwballs swung at
-#   SCSM%=Percentage of Screwballs swung at and missed
-#   MPHSC=Screwball average velocity
-#   CB=Number of pitches thrown as Curveballs
-#   CBS=Number of Curveballs thrown for strikes
-#   CBS%=Percentage of Curveballs thrown for strikes
-#   CBSW%=Percentage of Curveballs swung at
-#   CBSM%=Percentage of Curveballs swung at and missed
-#   DC=Number of pitches thrown as Drop Curves
-#   DCS=Number of Drop Curves thrown for strikes
-#   DCS%=Percentage of Drop Curves thrown for strikes
-#   DCSW%=Percentage of Drop Curves swung at
-#   DCSM%=Percentage of Drop Curves swung at and missed
-#   MPHDC=Drop Curve average velocity
-#   KB=Number of pitches thrown as Knuckleballs
-#   KBS=Number of Knuckleballs thrown for strikes
-#   KBS%=Percentage of Knuckleballs thrown for strikes
-#   KBSW%=Percentage of Knuckleballs swung at
-#   KBSM%=Percentage of Knuckleballs swung at and missed
-#   MPHKB=Knuckleball average velocity
-#   KC=Number of pitches thrown as Knuckle Curves
-#   KCS=Number of Knuckle Curves thrown for strikes
-#   KCS%=Percentage of Knuckle Curves thrown for strikes
-#   KCSW%=Percentage of Knuckle Curves swung at
-#   KCSM%=Percentage of Knuckle Curves swung at and missed
-#   MPHKC=Knuckle Curve average velocity
-#   OS=Number of pitches thrown as Offspeeds
-#   OSS=Number of Offspeeds thrown for strikes
-#   OSS%=Percentage of Offspeeds thrown for strikes
-#   OSSW%=Percentage of Offspeeds swung at
-#   OSSM%=Percentage of Offspeeds swung at and missed
-#   TC=Total Chances
-#   A=Assists
-#   PO=Putouts
-#   FPCT=Fielding Percentage
-#   E=Errors
-#   DP=Double Plays
-#   TP=Triple Plays
-#   INN=Innings played as catcher
-#   PB=Passed balls allowed
-#   SB-ATT=Stolen bases - Stealing attempts
-#   CS%=Runners caught stealing percentage
-#   P=Innings played at pitcher
-#   C=Innings played at catcher
-#   1B=Innings played at first base
-#   2B=Innings played at second base
-#   3B=Innings played at third base
-#   SS=Innings played at shortstop
-#   LF=Innings played at left field
-#   CF=Innings played at center field
-#   RF=Innings played at right field
-#   SF=Innings played at short field
-#   Total=Total innings played
+# #23 is name-withheld on the public site (hidden: true) — do NOT add
+# her name here.
 
-last_updated: 2026-06-10
-games_played: 6
+last_updated: 2026-06-18
+games_played: 7
+
+# Team-level season snapshot (used by the home page)
+team_record: "2-5"
+team_avg: ".157"
+team_obp: ".531"
+runs_for: 31
+runs_against: 50
+
+# Top 3 batters by AVG (manually maintained — re-rank when stats update)
+leaders_avg:
+  - { jersey: 22, name: "Tyndle M.",  val: ".462" }
+  - { jersey: 23, name: "",           val: ".400", hidden: true }
+  - { jersey: 21, name: "Phoenix B.", val: ".286" }
 
 batting:
-  - { jersey: 1, name: "Kyla W.", gp: 6, pa: 8, ab: 4, avg: ".250", obp: ".625", ops: ".875", slg: ".250", h: 1, doubles: 0, triples: 0, hr: 0, rbi: 2, r: 1, bb: 4, so: 3, hbp: 0, tob: 5, sb: 1, sb_pct: "100.0", qab: 5, qab_pct: "62.50" }
-  - { jersey: 2, name: "Pyper J.", gp: 6, pa: 12, ab: 8, avg: ".125", obp: ".417", ops: ".542", slg: ".125", h: 1, doubles: 0, triples: 0, hr: 0, rbi: 4, r: 1, bb: 4, so: 5, hbp: 0, tob: 5, sb: 0, sb_pct: "-", qab: 7, qab_pct: "58.33" }
-  - { jersey: 3, name: "Kortlyn C.", gp: 5, pa: 9, ab: 5, avg: ".000", obp: ".444", ops: ".444", slg: ".000", h: 0, doubles: 0, triples: 0, hr: 0, rbi: 1, r: 2, bb: 3, so: 4, hbp: 1, tob: 4, sb: 0, sb_pct: "-", qab: 5, qab_pct: "55.56" }
-  - { jersey: 4, name: "Amber E.", gp: 5, pa: 9, ab: 3, avg: ".000", obp: ".667", ops: ".667", slg: ".000", h: 0, doubles: 0, triples: 0, hr: 0, rbi: 2, r: 2, bb: 3, so: 2, hbp: 3, tob: 6, sb: 3, sb_pct: "100.0", qab: 5, qab_pct: "55.56" }
-  - { jersey: 5, name: "Victoria C.", gp: 4, pa: 4, ab: 2, avg: ".000", obp: ".500", ops: ".500", slg: ".000", h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, r: 0, bb: 1, so: 2, hbp: 1, tob: 2, sb: 0, sb_pct: "-", qab: 2, qab_pct: "50.00" }
-  - { jersey: 6, name: "Waylyn H.", gp: 6, pa: 8, ab: 7, avg: ".143", obp: ".250", ops: ".393", slg: ".143", h: 1, doubles: 0, triples: 0, hr: 0, rbi: 2, r: 1, bb: 0, so: 5, hbp: 1, tob: 2, sb: 0, sb_pct: "-", qab: 0, qab_pct: "0.00" }
-  - { jersey: 7, name: "Oakley M.", gp: 6, pa: 11, ab: 5, avg: ".200", obp: ".636", ops: ".836", slg: ".200", h: 1, doubles: 0, triples: 0, hr: 0, rbi: 5, r: 0, bb: 6, so: 4, hbp: 0, tob: 7, sb: 3, sb_pct: "100.0", qab: 8, qab_pct: "72.73" }
-  - { jersey: 8, name: "Aisley F.", gp: 3, pa: 4, ab: 2, avg: ".000", obp: ".500", ops: ".500", slg: ".000", h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, r: 1, bb: 2, so: 2, hbp: 0, tob: 2, sb: 0, sb_pct: "-", qab: 3, qab_pct: "75.00" }
-  - { jersey: 9, name: "Delaney P.", gp: 6, pa: 11, ab: 4, avg: ".000", obp: ".636", ops: ".636", slg: ".000", h: 0, doubles: 0, triples: 0, hr: 0, rbi: 1, r: 2, bb: 7, so: 4, hbp: 0, tob: 7, sb: 0, sb_pct: "-", qab: 8, qab_pct: "72.73" }
-  - { jersey: 11, name: "Crisbel G.", gp: 4, pa: 4, ab: 4, avg: ".000", obp: ".000", ops: ".000", slg: ".000", h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, r: 0, bb: 0, so: 4, hbp: 0, tob: 0, sb: 0, sb_pct: "-", qab: 1, qab_pct: "25.00" }
-  - { jersey: 16, name: "Tayla M.", gp: 5, pa: 5, ab: 5, avg: ".000", obp: ".000", ops: ".000", slg: ".000", h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, r: 0, bb: 0, so: 4, hbp: 0, tob: 0, sb: 0, sb_pct: "-", qab: 2, qab_pct: "40.00" }
-  - { jersey: 20, name: "Palmer H.", gp: 6, pa: 12, ab: 4, avg: ".000", obp: ".667", ops: ".667", slg: ".000", h: 0, doubles: 0, triples: 0, hr: 0, rbi: 1, r: 4, bb: 8, so: 4, hbp: 0, tob: 8, sb: 4, sb_pct: "100.0", qab: 10, qab_pct: "83.33" }
-  - { jersey: 21, name: "Phoenix B.", gp: 6, pa: 13, ab: 7, avg: ".286", obp: ".615", ops: ".901", slg: ".286", h: 2, doubles: 0, triples: 0, hr: 0, rbi: 0, r: 6, bb: 5, so: 2, hbp: 1, tob: 8, sb: 6, sb_pct: "100.0", qab: 8, qab_pct: "61.54" }
-  - { jersey: 22, name: "Tyndle M.", gp: 6, pa: 14, ab: 12, avg: ".500", obp: ".571", ops: "1.071", slg: ".500", h: 6, doubles: 0, triples: 0, hr: 0, rbi: 2, r: 4, bb: 2, so: 2, hbp: 0, tob: 8, sb: 4, sb_pct: "80.00", qab: 7, qab_pct: "50.00" }
-  - { jersey: 23, name: "#23", hidden: true, gp: 4, pa: 7, ab: 4, avg: ".500", obp: ".714", ops: "1.464", slg: ".750", h: 2, doubles: 1, triples: 0, hr: 0, rbi: 2, r: 0, bb: 3, so: 2, hbp: 0, tob: 5, sb: 2, sb_pct: "66.67", qab: 7, qab_pct: "100.0" }
-  - { jersey: 24, name: "Maddie B.", gp: 3, pa: 5, ab: 4, avg: ".000", obp: ".200", ops: ".200", slg: ".000", h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, r: 0, bb: 0, so: 3, hbp: 1, tob: 1, sb: 2, sb_pct: "100.0", qab: 0, qab_pct: "0.00" }
+  - { jersey:  1, name: "Kyla W."     , pa: 10, r:  2, h:  1, rbi:  3, tob:  7, bb:  6, hbp:  0, so:  3, obp: ".700", ops: ".950" }
+  - { jersey:  2, name: "Pyper J."    , pa: 14, r:  2, h:  1, rbi:  5, tob:  6, bb:  5, hbp:  0, so:  6, obp: ".429", ops: ".540" }
+  - { jersey:  3, name: "Kortlyn C."  , pa:  9, r:  2, h:  0, rbi:  1, tob:  4, bb:  3, hbp:  1, so:  4, obp: ".444", ops: ".444" }
+  - { jersey:  4, name: "Amber E."    , pa: 11, r:  3, h:  0, rbi:  2, tob:  7, bb:  3, hbp:  4, so:  2, obp: ".636", ops: ".636" }
+  - { jersey:  5, name: "Victoria C." , pa:  4, r:  0, h:  0, rbi:  0, tob:  2, bb:  1, hbp:  1, so:  2, obp: ".500", ops: ".500" }
+  - { jersey:  6, name: "Waylyn H."   , pa: 10, r:  1, h:  1, rbi:  3, tob:  2, bb:  0, hbp:  1, so:  6, obp: ".200", ops: ".311" }
+  - { jersey:  7, name: "Oakley M."   , pa: 13, r:  0, h:  1, rbi:  5, tob:  9, bb:  8, hbp:  0, so:  4, obp: ".692", ops: ".892" }
+  - { jersey:  8, name: "Aisley F."   , pa:  6, r:  1, h:  0, rbi:  0, tob:  2, bb:  2, hbp:  0, so:  4, obp: ".333", ops: ".333" }
+  - { jersey:  9, name: "Delaney P."  , pa: 12, r:  2, h:  0, rbi:  1, tob:  8, bb:  8, hbp:  0, so:  4, obp: ".667", ops: ".667" }
+  - { jersey: 11, name: "Crisbel G."  , pa:  5, r:  0, h:  0, rbi:  0, tob:  1, bb:  0, hbp:  1, so:  4, obp: ".200", ops: ".200" }
+  - { jersey: 16, name: "Tayla M."    , pa:  6, r:  0, h:  0, rbi:  1, tob:  1, bb:  1, hbp:  0, so:  4, obp: ".167", ops: ".167" }
+  - { jersey: 20, name: "Palmer H."   , pa: 14, r:  5, h:  0, rbi:  1, tob: 10, bb: 10, hbp:  0, so:  4, obp: ".714", ops: ".714" }
+  - { jersey: 21, name: "Phoenix B."  , pa: 15, r:  8, h:  2, rbi:  0, tob: 10, bb:  7, hbp:  1, so:  2, obp: ".667", ops: ".952" }
+  - { jersey: 22, name: "Tyndle M."   , pa: 16, r:  5, h:  6, rbi:  3, tob:  9, bb:  2, hbp:  1, so:  2, obp: ".563", ops: "1.024" }
+  - { jersey: 23, name: ""            , pa:  9, r:  0, h:  2, rbi:  3, tob:  6, bb:  3, hbp:  1, so:  2, obp: ".667", ops: "1.267", hidden: true }
+  - { jersey: 24, name: "Maddie B."   , pa:  6, r:  0, h:  0, rbi:  0, tob:  1, bb:  0, hbp:  1, so:  4, obp: ".167", ops: ".167" }
 
 pitching:
-  - { jersey: 3, name: "Kortlyn C.", ip: "12.0", gp: 5, gs: 3, bf: 71, pitches: 324, w: 1, l: 2, h_allowed: 10, r_allowed: 16, er: 13, bb: 23, so: 29, hbp: 0, era: "6.500", whip: "2.750", baa: ".208", k_per_bb: "1.261", fps_pct: "53.52" }
-  - { jersey: 4, name: "Amber E.", ip: "5.2", gp: 4, gs: 1, bf: 40, pitches: 141, w: 1, l: 1, h_allowed: 11, r_allowed: 9, er: 7, bb: 10, so: 12, hbp: 1, era: "7.412", whip: "3.706", baa: ".379", k_per_bb: "1.200", fps_pct: "60.00" }
-  - { jersey: 21, name: "Phoenix B.", ip: "4.0", gp: 1, gs: 1, bf: 21, pitches: 90, w: 0, l: 0, h_allowed: 6, r_allowed: 3, er: 3, bb: 4, so: 9, hbp: 0, era: "4.500", whip: "2.500", baa: ".353", k_per_bb: "2.250", fps_pct: "52.38" }
-  - { jersey: 22, name: "Tyndle M.", ip: "1.1", gp: 2, gs: 1, bf: 18, pitches: 84, w: 0, l: 1, h_allowed: 2, r_allowed: 8, er: 5, bb: 9, so: 3, hbp: 1, era: "22.50", whip: "8.250", baa: ".250", k_per_bb: ".333", fps_pct: "38.89" }
+  - { jersey:  1, name: "Kyla W."     , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000" }
+  - { jersey:  2, name: "Pyper J."    , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000" }
+  - { jersey:  3, name: "Kortlyn C."  , ip: "12.0", gp: 5, so: 29, bb: 23, era: "6.500", whip: "2.750" }
+  - { jersey:  4, name: "Amber E."    , ip: "5.2", gp: 5, so: 12, bb: 15, era: "13.76", whip: "5.294" }
+  - { jersey:  5, name: "Victoria C." , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000" }
+  - { jersey:  6, name: "Waylyn H."   , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000" }
+  - { jersey:  7, name: "Oakley M."   , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000" }
+  - { jersey:  8, name: "Aisley F."   , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000" }
+  - { jersey:  9, name: "Delaney P."  , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000" }
+  - { jersey: 11, name: "Crisbel G."  , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000" }
+  - { jersey: 16, name: "Tayla M."    , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000" }
+  - { jersey: 20, name: "Palmer H."   , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000" }
+  - { jersey: 21, name: "Phoenix B."  , ip: "4.0", gp: 1, so:  9, bb:  4, era: "4.500", whip: "2.500" }
+  - { jersey: 22, name: "Tyndle M."   , ip: "4.0", gp: 3, so:  8, bb: 16, era: "19.50", whip: "5.750" }
+  - { jersey: 23, name: ""            , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000", hidden: true }
+  - { jersey: 24, name: "Maddie B."   , ip: "0.0", gp: 0, so:  0, bb:  0, era: ".000", whip: ".000" }
 
 fielding:
-  - { jersey: 1, name: "Kyla W.", tc: 0, a: 0, po: 0, fpct: "-", e: 0, dp: 0, inn_total: 14.2, positions: { p: 0, c: 0, "1b": 0, "2b": 1, "3b": 0, ss: 0, lf: 3, cf: 0.2, rf: 10, sf: 0 } }
-  - { jersey: 2, name: "Pyper J.", tc: 3, a: 0, po: 3, fpct: "1.000", e: 0, dp: 0, inn_total: 12, positions: { p: 0, c: 1, "1b": 0, "2b": 1, "3b": 7, ss: 0, lf: 0, cf: 1, rf: 2, sf: 0 } }
-  - { jersey: 3, name: "Kortlyn C.", tc: 4, a: 4, po: 0, fpct: "1.000", e: 0, dp: 0, inn_total: 17.1, positions: { p: 12, c: 0, "1b": 1, "2b": 0, "3b": 3.2, ss: 0.2, lf: 0, cf: 0, rf: 0, sf: 0 } }
-  - { jersey: 4, name: "Amber E.", tc: 9, a: 2, po: 6, fpct: ".889", e: 1, dp: 0, inn_total: 19, positions: { p: 5.2, c: 0, "1b": 12.2, "2b": 0, "3b": 0, ss: 0.2, lf: 0, cf: 0, rf: 0, sf: 0 } }
-  - { jersey: 5, name: "Victoria C.", tc: 0, a: 0, po: 0, fpct: "-", e: 0, dp: 0, inn_total: 6.1, positions: { p: 0, c: 0, "1b": 0, "2b": 1.1, "3b": 0, ss: 0, lf: 1, cf: 2, rf: 2, sf: 0 } }
-  - { jersey: 6, name: "Waylyn H.", tc: 6, a: 0, po: 4, fpct: ".667", e: 2, dp: 0, inn_total: 12.2, positions: { p: 0, c: 0, "1b": 5.1, "2b": 0.2, "3b": 2, ss: 0, lf: 1.2, cf: 2, rf: 1, sf: 0 } }
-  - { jersey: 7, name: "Oakley M.", tc: 1, a: 0, po: 1, fpct: "1.000", e: 0, dp: 0, inn_total: 16, positions: { p: 0, c: 0, "1b": 0, "2b": 10.2, "3b": 0, ss: 0, lf: 0.2, cf: 0, rf: 4.2, sf: 0 } }
-  - { jersey: 8, name: "Aisley F.", tc: 0, a: 0, po: 0, fpct: "-", e: 0, dp: 0, inn_total: 6, positions: { p: 0, c: 0, "1b": 0, "2b": 0, "3b": 0, ss: 0, lf: 0, cf: 5, rf: 1, sf: 0 } }
-  - { jersey: 9, name: "Delaney P.", tc: 0, a: 0, po: 0, fpct: "-", e: 0, dp: 0, inn_total: 14, positions: { p: 0, c: 0, "1b": 0, "2b": 0, "3b": 0, ss: 4, lf: 8, cf: 2, rf: 0, sf: 0 } }
-  - { jersey: 11, name: "Crisbel G.", tc: 0, a: 0, po: 0, fpct: "-", e: 0, dp: 0, inn_total: 5, positions: { p: 0, c: 0, "1b": 0, "2b": 0, "3b": 0, ss: 0, lf: 2, cf: 3, rf: 0, sf: 0 } }
-  - { jersey: 16, name: "Tayla M.", tc: 0, a: 0, po: 0, fpct: "-", e: 0, dp: 0, inn_total: 7.2, positions: { p: 0, c: 0, "1b": 0, "2b": 0.2, "3b": 1, ss: 0, lf: 1.2, cf: 2.2, rf: 1.2, sf: 0 } }
-  - { jersey: 20, name: "Palmer H.", tc: 50, a: 0, po: 50, fpct: "1.000", e: 0, dp: 0, inn_total: 23, positions: { p: 0, c: 22, "1b": 0, "2b": 0, "3b": 0, ss: 0, lf: 0, cf: 1, rf: 0, sf: 0 } }
-  - { jersey: 21, name: "Phoenix B.", tc: 3, a: 2, po: 0, fpct: ".667", e: 1, dp: 0, inn_total: 14, positions: { p: 4, c: 0, "1b": 0, "2b": 7.2, "3b": 1.2, ss: 0, lf: 0, cf: 0, rf: 0.2, sf: 0 } }
-  - { jersey: 22, name: "Tyndle M.", tc: 4, a: 3, po: 0, fpct: ".750", e: 1, dp: 0, inn_total: 21, positions: { p: 1.1, c: 0, "1b": 0, "2b": 0, "3b": 0, ss: 17.2, lf: 2, cf: 0, rf: 0, sf: 0 } }
-  - { jersey: 23, name: "#23", hidden: true, tc: 3, a: 0, po: 3, fpct: "1.000", e: 0, dp: 0, inn_total: 10.2, positions: { p: 0, c: 0, "1b": 2, "2b": 0, "3b": 7.2, ss: 0, lf: 1, cf: 0, rf: 0, sf: 0 } }
-  - { jersey: 24, name: "Maddie B.", tc: 2, a: 0, po: 1, fpct: ".500", e: 1, dp: 0, inn_total: 7.2, positions: { p: 0, c: 0, "1b": 2, "2b": 0, "3b": 0, ss: 0, lf: 2, cf: 3.2, rf: 0, sf: 0 } }
+  - { jersey:  1, name: "Kyla W."     , tc:  0, po:  0, a:  0, e:  0, fpct: "-" }
+  - { jersey:  2, name: "Pyper J."    , tc:  3, po:  3, a:  0, e:  0, fpct: "1.000" }
+  - { jersey:  3, name: "Kortlyn C."  , tc:  4, po:  0, a:  4, e:  0, fpct: "1.000" }
+  - { jersey:  4, name: "Amber E."    , tc:  9, po:  6, a:  2, e:  1, fpct: ".889" }
+  - { jersey:  5, name: "Victoria C." , tc:  0, po:  0, a:  0, e:  0, fpct: "-" }
+  - { jersey:  6, name: "Waylyn H."   , tc:  7, po:  5, a:  0, e:  2, fpct: ".714" }
+  - { jersey:  7, name: "Oakley M."   , tc:  2, po:  1, a:  1, e:  0, fpct: "1.000" }
+  - { jersey:  8, name: "Aisley F."   , tc:  0, po:  0, a:  0, e:  0, fpct: "-" }
+  - { jersey:  9, name: "Delaney P."  , tc:  0, po:  0, a:  0, e:  0, fpct: "-" }
+  - { jersey: 11, name: "Crisbel G."  , tc:  0, po:  0, a:  0, e:  0, fpct: "-" }
+  - { jersey: 16, name: "Tayla M."    , tc:  0, po:  0, a:  0, e:  0, fpct: "-" }
+  - { jersey: 20, name: "Palmer H."   , tc: 56, po: 56, a:  0, e:  0, fpct: "1.000" }
+  - { jersey: 21, name: "Phoenix B."  , tc:  4, po:  0, a:  3, e:  1, fpct: ".750" }
+  - { jersey: 22, name: "Tyndle M."   , tc:  5, po:  0, a:  4, e:  1, fpct: ".800" }
+  - { jersey: 23, name: ""            , tc:  4, po:  4, a:  0, e:  0, fpct: "1.000", hidden: true }
+  - { jersey: 24, name: "Maddie B."   , tc:  2, po:  1, a:  0, e:  1, fpct: ".500" }
