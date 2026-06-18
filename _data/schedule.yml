@@ -74,12 +74,12 @@ games:
 
   - date: 2026-06-11
     day: "Thu"
-    time: ""
-    opponent: "BYE"
-    location: ""
-    home: null
-    result: ""
-    notes: "Bye week"
+    time: "6:00 PM"
+    opponent: "Yuma Outlaw"
+    location: "Haxtun Baseball Field"
+    home: true
+    result: "L 7-14"
+    notes: "Originally scheduled as a bye"
 
   - date: 2026-06-16
     day: "Tue"
