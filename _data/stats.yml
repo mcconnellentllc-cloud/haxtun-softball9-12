@@ -4,15 +4,17 @@
 # #23 is name-withheld on the public site (hidden: true) — do NOT add
 # her name here.
 
-last_updated: 2026-06-18
-games_played: 7
+last_updated: 2026-06-11
+games_played: 8
 
-# Team-level season snapshot (used by the home page)
-team_record: "2-5"
+# Team-level season snapshot (used by the home page).
+# Record + runs include the 6/11 Yuma game; team_avg/obp are 7-game
+# carryovers — refresh after the next GameChanger CSV export.
+team_record: "2-6"
 team_avg: ".157"
 team_obp: ".531"
-runs_for: 31
-runs_against: 50
+runs_for: 38
+runs_against: 64
 
 # Top 3 batters by AVG (manually maintained — re-rank when stats update)
 leaders_avg:
