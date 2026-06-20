@@ -35,6 +35,7 @@ plugins:
 nav:
   - { title: "Home",        url: "/" }
   - { title: "Schedule",    url: "/schedule/" }
+  - { title: "Tournament",  url: "/tournament/" }
   - { title: "Calendar",    url: "/calendar/" }
   - { title: "Roster",      url: "/roster/" }
   - { title: "League Rules", url: "/league-rules/" }
