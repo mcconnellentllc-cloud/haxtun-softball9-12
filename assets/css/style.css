@@ -589,6 +589,78 @@ h3 { font-size: 1.4rem; margin-top: 1.75rem; }
 }
 .tourney-seeds li { font-size: 1rem; }
 
+/* ====================== Bracket visual (tree view) ====================== */
+.bracket-visual {
+  display: flex;
+  overflow-x: auto;
+  gap: 1.25rem;
+  padding: .5rem .25rem 1.25rem;
+  margin: 1rem 0 1rem;
+  min-height: 460px;
+  -webkit-overflow-scrolling: touch;
+}
+.bracket-col {
+  flex: 0 0 200px;
+  display: flex;
+  flex-direction: column;
+}
+.bracket-col-label {
+  font-family: var(--font-display);
+  font-size: .8rem;
+  letter-spacing: .18em;
+  color: var(--red);
+  text-transform: uppercase;
+  text-align: center;
+  margin: 0 0 .5rem;
+}
+.bracket-col__matches {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: .5rem;
+}
+.bracket-match {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: .5rem .7rem;
+}
+.bm-team {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .3rem 0;
+  font-size: .9rem;
+}
+.bm-team:not(:last-child) { border-bottom: 1px solid var(--line); }
+.bm-seed {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  background: var(--bone);
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-size: .8rem;
+  flex-shrink: 0;
+}
+.bracket-match.is-us {
+  border-color: var(--red);
+  background: #fff5f6;
+  font-weight: 600;
+}
+.bracket-match.is-us .bm-seed { background: var(--red); color: #fff; }
+.bracket-scroll-hint {
+  font-size: .8rem;
+  color: #6b6b6b;
+  text-align: right;
+  margin: -.5rem 0 1.25rem;
+}
+@media (max-width: 700px) {
+  .bracket-col { flex: 0 0 170px; }
+}
+
 /* ====================== Footer ====================== */
 .site-footer {
   background: var(--black);
