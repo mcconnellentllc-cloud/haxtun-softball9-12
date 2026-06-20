@@ -24,10 +24,19 @@ permalink: /schedule/
       <th>Location</th>
       <th>H/A</th>
       <th>Result</th>
+      <th>Record</th>
     </tr>
   </thead>
   <tbody>
+    {% assign rec_w = 0 %}
+    {% assign rec_l = 0 %}
+    {% assign rec_t = 0 %}
     {% for g in site.data.schedule.games %}
+    {% assign first_char = g.result | slice: 0, 1 %}
+    {% if first_char == "W" %}{% assign rec_w = rec_w | plus: 1 %}
+    {% elsif first_char == "L" %}{% assign rec_l = rec_l | plus: 1 %}
+    {% elsif first_char == "T" %}{% assign rec_t = rec_t | plus: 1 %}
+    {% endif %}
     {% if g.doubleheader %}
       {% assign dh_times = g.time | append: "|G1," | append: g.game2_time | append: "|G2" | split: "," %}
       {% for slot in dh_times %}
@@ -42,6 +51,7 @@ permalink: /schedule/
       <td>
         {% if g.home %}<span class="tag tag--home">Home</span>{% else %}<span class="tag tag--away">Away</span>{% endif %}
       </td>
+      <td><strong>—</strong></td>
       <td><strong>—</strong></td>
     </tr>
       {% endfor %}
@@ -63,6 +73,7 @@ permalink: /schedule/
         {% endif %}
       </td>
       <td><strong>{{ g.result | default: "—" }}</strong></td>
+      <td><strong>{% if g.result != "" and g.result %}{{ rec_w }}-{{ rec_l }}{% if rec_t > 0 %}-{{ rec_t }}{% endif %}{% else %}—{% endif %}</strong></td>
     </tr>
     {% endif %}
     {% endfor %}
