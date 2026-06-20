@@ -5,12 +5,13 @@
 # her name here.
 
 last_updated: 2026-06-19
-games_played: 10
+games_played: 9
 
 # Team-level season snapshot (used by the home page).
-# Record + runs include the 6/19 Holyoke regular-season finale; team_avg/obp
-# are still 7-game CSV carryovers — refresh after the next GameChanger export.
-team_record: "2-8"
+# Record reflects 9 official 12u games (the 10u inter-league game in
+# GameChanger does not count). team_avg/obp + per-player rows still include
+# the 10u game's contribution — refresh after next GameChanger export.
+team_record: "2-7"
 team_avg: ".157"
 team_obp: ".531"
 runs_for: 45
