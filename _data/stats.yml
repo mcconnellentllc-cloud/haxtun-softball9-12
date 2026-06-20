@@ -4,17 +4,17 @@
 # #23 is name-withheld on the public site (hidden: true) — do NOT add
 # her name here.
 
-last_updated: 2026-06-18
-games_played: 9
+last_updated: 2026-06-19
+games_played: 10
 
 # Team-level season snapshot (used by the home page).
-# Record + runs include the 6/18 Sidney walk-off loss; team_avg/obp are
-# 7-game CSV carryovers — refresh after the next GameChanger export.
-team_record: "2-7"
+# Record + runs include the 6/19 Holyoke regular-season finale; team_avg/obp
+# are still 7-game CSV carryovers — refresh after the next GameChanger export.
+team_record: "2-8"
 team_avg: ".157"
 team_obp: ".531"
-runs_for: 42
-runs_against: 69
+runs_for: 45
+runs_against: 75
 
 # Top 3 batters by AVG (manually maintained — re-rank when stats update)
 leaders_avg:

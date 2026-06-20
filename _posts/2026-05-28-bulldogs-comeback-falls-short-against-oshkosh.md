@@ -10,7 +10,7 @@ A triple by Tansey A put Oshkosh on the board in the top of the second. Oshkosh 
 
 Tansey earned the win for Oshkosh, giving up one hit and zero runs over three innings, striking out five and walking one. Kortlyn C took the loss for the Bulldogs. The starter went three innings, giving up five runs on three hits, striking out six and walking six.
 
-Annon O and Tyndle M each collected one hit for the Bulldogs. Annon, Amber E, and Palmer H each drove in a run. Palmer led the team with two walks. Overall, the team had a strong eye at the plate, collecting five walks for the game. Palmer stole two bases. The Bulldogs didn't commit a single error in the field. Palmer had the most chances in the field with eight.
+#23 and Tyndle M each collected one hit for the Bulldogs. #23, Amber E, and Palmer H each drove in a run. Palmer led the team with two walks. Overall, the team had a strong eye at the plate, collecting five walks for the game. Palmer stole two bases. The Bulldogs didn't commit a single error in the field. Palmer had the most chances in the field with eight.
 
 The Bulldogs welcome Ogallala 12U on Tuesday for their next game.
 

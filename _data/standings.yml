@@ -2,12 +2,12 @@
 # Update after each game, then commit. Order doesn't matter — the
 # page sorts by win pct.
 
-last_updated: 2026-06-18
+last_updated: 2026-06-19
 
 teams:
   - name: "Haxtun"
     w: 2
-    l: 7
+    l: 8
     t: 0
   - name: "Sidney"
     w: 0
