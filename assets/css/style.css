@@ -533,6 +533,62 @@ h3 { font-size: 1.4rem; margin-top: 1.75rem; }
 }
 .btn:hover { background: var(--red-deep); text-decoration: none; }
 
+/* ====================== Tournament bracket ====================== */
+.bracket-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin: 1.25rem 0 2rem;
+}
+.bracket-game {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  padding: .9rem 1rem;
+}
+.bracket-time {
+  font-family: var(--font-display);
+  font-size: .9rem;
+  letter-spacing: .12em;
+  color: var(--red);
+  text-transform: uppercase;
+  margin: 0 0 .5rem;
+}
+.bracket-team {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .5rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 1rem;
+}
+.bracket-team:first-of-type { border-top: 0; padding-top: .1rem; }
+.bracket-seed {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  background: var(--bone);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: .95rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.bracket-team--us { font-weight: 700; }
+.bracket-team--us .bracket-seed {
+  background: var(--red);
+  color: #fff;
+}
+.tourney-seeds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: .35rem 1.25rem;
+  padding-left: 1.5rem;
+  margin: 1rem 0 1.5rem;
+}
+.tourney-seeds li { font-size: 1rem; }
+
 /* ====================== Footer ====================== */
 .site-footer {
   background: var(--black);
