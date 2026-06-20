@@ -626,6 +626,17 @@ h3 { font-size: 1.4rem; margin-top: 1.75rem; }
   border-radius: 4px;
   padding: .5rem .7rem;
 }
+.bm-meta {
+  font-family: var(--font-display);
+  font-size: .72rem;
+  letter-spacing: .14em;
+  color: var(--red);
+  text-transform: uppercase;
+  text-align: center;
+  margin: 0 0 .35rem;
+  padding-bottom: .3rem;
+  border-bottom: 1px dashed var(--line);
+}
 .bm-team {
   display: flex;
   align-items: center;
