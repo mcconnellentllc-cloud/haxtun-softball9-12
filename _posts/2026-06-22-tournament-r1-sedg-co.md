@@ -10,7 +10,7 @@ Sedg-Co got on the board in the bottom of the first when Lacey T. singled down t
 
 **Pitching:** Callie T. earned the win for Sedg-Co — one hit, one run, four innings, **nine strikeouts**, four walks. Amber E. took the loss for Haxtun: 3.1 innings, 11 runs (six earned) on eight hits, **eight strikeouts**, five walks.
 
-**Haxtun offense:** #23 went 1-for-1 with the team's lone RBI. The Bulldogs also turned a double play in the field.
+**Haxtun offense:** **#23 launched the team's only hit — a triple — and drove in the run.** She went 1-for-1 with the lone RBI. The Bulldogs also turned a double play in the field and got on base via five hit-by-pitches (Kortlyn C., Kyla W., Waylyn H., Oakley M., Delaney P.).
 
 Sedg-Co ran wild — **17 stolen bases** as a team — and didn't commit a single error.
 
