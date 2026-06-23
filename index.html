@@ -15,7 +15,7 @@ permalink: /
     {% assign next_game = nil %}
     {% for g in site.data.schedule.games %}
       {% assign g_str = g.date | date: "%Y-%m-%d" %}
-      {% if g_str >= today_str and g.opponent != "BYE" and next_game == nil %}
+      {% if g_str >= today_str and g.opponent != "BYE" and g.opponent != "League Tournament" and next_game == nil %}
         {% assign next_game = g %}
       {% endif %}
     {% endfor %}
@@ -45,13 +45,13 @@ permalink: /
   <a href="{{ '/tournament/' | relative_url }}" class="card" style="display:block;background:#fff;color:#111;border:3px solid var(--red);text-decoration:none;margin:0 0 2rem;padding:1.75rem 1.5rem;box-shadow:0 10px 30px rgba(200,16,46,.18)">
     <p style="margin:0;font-size:.78rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--red)">⏰ Game Tomorrow</p>
     <p style="margin:.5rem 0 .35rem;font-family:var(--font-display);font-size:3.2rem;line-height:.95;letter-spacing:.02em;color:#111">
-      Tue · 11:30 AM
+      Wed · 11:30 AM
     </p>
     <p style="margin:0 0 .5rem;font-family:var(--font-display);font-size:1.5rem;letter-spacing:.04em;line-height:1.1;color:#111">
-      <span style="color:var(--red)">(7)</span> Bulldogs vs <span style="color:var(--red)">(6)</span> Imperial
+      <span style="color:var(--red)">(7)</span> Bulldogs · Losers Bracket
     </p>
     <p style="margin:0;color:#444;font-size:.95rem">
-      Small Field · Holyoke · Losers Bracket Round 1 · <span style="color:var(--red);font-weight:700">Full bracket →</span>
+      Holyoke · Wed 6/24 · Opponent + field TBD · <span style="color:var(--red);font-weight:700">Full bracket →</span>
     </p>
   </a>
 
