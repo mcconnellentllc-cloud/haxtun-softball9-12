@@ -1,6 +1,6 @@
 # Site
 title: Haxtun Bulldogs Softball
-tagline: 9-12 Girls • 2026 Season
+tagline: Off-season — preparing for the next season
 description: Schedule, rules, roster, and updates for the Haxtun Bulldogs 9-12 girls softball team.
 url: "https://mcconnellentllc-cloud.github.io"
 baseurl: "/haxtun-softball9-12"
@@ -33,19 +33,12 @@ plugins:
 
 # Navigation order
 nav:
-  - { title: "Home",        url: "/" }
-  - { title: "Schedule",    url: "/schedule/" }
-  - { title: "Tournament",  url: "/tournament/" }
-  - { title: "Calendar",    url: "/calendar/" }
-  - { title: "Roster",      url: "/roster/" }
-  - { title: "League Rules", url: "/league-rules/" }
-  - { title: "NFHS Rules",  url: "/nfhs-rules/" }
-  - { title: "Practices",   url: "/practices/" }
-  - { title: "Drills",      url: "/drills/" }
-  - { title: "Standings",   url: "/standings/" }
-  - { title: "Stats",       url: "/stats/" }
-  - { title: "2026 Recap",  url: "/season-2026/" }
-  - { title: "News",        url: "/news/" }
+  - { title: "Home",         url: "/" }
+  - { title: "Rules",        url: "/rules/" }
+  - { title: "Practices",    url: "/practices/" }
+  - { title: "Drills",       url: "/drills/" }
+  - { title: "News",         url: "/news/" }
+  - { title: "Past Seasons", url: "/past-seasons/" }
 
 exclude:
   - Gemfile

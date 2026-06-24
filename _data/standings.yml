@@ -1,43 +1,7 @@
-# Northeast Colorado Girls Softball League — 9-12 Standings
-# Update after each game, then commit. Order doesn't matter — the
-# page sorts by win pct.
+# Northeast Colorado Girls Softball League — standings
+# Off-season — no current standings. 2026 final record (Haxtun 2-7 regular
+# season) is on /past-seasons/.
 
-last_updated: 2026-06-19
+last_updated: ""
 
-teams:
-  - name: "Haxtun"
-    w: 2
-    l: 7
-    t: 0
-  - name: "Sidney"
-    w: 0
-    l: 0
-    t: 0
-  - name: "Holyoke"
-    w: 0
-    l: 0
-    t: 0
-  - name: "Imperial"
-    w: 0
-    l: 0
-    t: 0
-  - name: "Oshkosh"
-    w: 0
-    l: 0
-    t: 0
-  - name: "Ogallala"
-    w: 0
-    l: 0
-    t: 0
-  - name: "Sedgwick County"
-    w: 0
-    l: 0
-    t: 0
-  - name: "Grant"
-    w: 0
-    l: 0
-    t: 0
-  - name: "Yuma"
-    w: 0
-    l: 0
-    t: 0
+teams: []

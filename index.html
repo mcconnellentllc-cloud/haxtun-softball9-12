@@ -7,93 +7,48 @@ permalink: /
 
 <section class="hero">
   <div class="wrap">
-    <p class="hero__eyebrow">Haxtun Bulldogs Softball • {{ site.season }}</p>
+    <p class="hero__eyebrow">Haxtun Bulldogs Softball</p>
     <h1 class="hero__title">Built<br>on <em>Grit.</em></h1>
-    <p class="hero__sub">Schedule, roster, league rules, and updates for the Haxtun Bulldogs 9-12 girls softball team. Coached by {{ site.head_coach }}.</p>
-
-    {% assign today_str = 'now' | date: "%Y-%m-%d" %}
-    {% assign next_game = nil %}
-    {% for g in site.data.schedule.games %}
-      {% assign g_str = g.date | date: "%Y-%m-%d" %}
-      {% if g_str >= today_str and g.opponent != "BYE" and g.opponent != "League Tournament" and next_game == nil %}
-        {% assign next_game = g %}
-      {% endif %}
-    {% endfor %}
-
-    {% if next_game %}
-    <div class="next-game">
-      <div>
-        <span class="next-game__label">Next Game</span>
-        <div class="next-game__date">{{ next_game.date | date: "%b %-d" }}</div>
-        <div class="next-game__meta">{{ next_game.day }} • {{ next_game.time }}</div>
-      </div>
-      <div>
-        <div class="next-game__matchup">
-          {% if next_game.home %}vs {{ next_game.opponent }}{% else %}@ {{ next_game.opponent }}{% endif %}
-        </div>
-        <div class="next-game__meta">{{ next_game.location }}</div>
-      </div>
-      <div class="next-game__badge">
-        {% if next_game.home %}Home{% else %}Away{% endif %}
-      </div>
-    </div>
-    {% endif %}
+    <p class="hero__sub">The home for the Haxtun Bulldogs Softball program. Off-season at the moment — see <a href="{{ '/past-seasons/' | relative_url }}" style="color:#fff;text-decoration:underline">Past Seasons</a> for the 2026 archive, or browse rules, practices, and drills below.</p>
   </div>
 </section>
 
 <div class="wrap">
-  <a href="{{ '/season-2026/' | relative_url }}" class="card" style="display:block;background:#fff;color:#111;border:3px solid var(--red);text-decoration:none;margin:0 0 2rem;padding:1.75rem 1.5rem;box-shadow:0 10px 30px rgba(200,16,46,.18)">
-    <p style="margin:0;font-size:.78rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--red)">🏆 Season Complete</p>
-    <p style="margin:.5rem 0 .35rem;font-family:var(--font-display);font-size:3.2rem;line-height:.95;letter-spacing:.02em;color:#111">
-      2-9 · Tournament Run Ends
-    </p>
-    <p style="margin:0 0 .5rem;font-family:var(--font-display);font-size:1.5rem;letter-spacing:.04em;line-height:1.1;color:#111">
-      Eliminated by <span style="color:var(--red)">(6)</span> Imperial · 3-2 · LB R1
+  <a href="{{ '/past-seasons/' | relative_url }}" class="card" style="display:block;background:#fff;color:#111;border:3px solid var(--red);text-decoration:none;margin:0 0 2rem;padding:1.75rem 1.5rem;box-shadow:0 10px 30px rgba(200,16,46,.18)">
+    <p style="margin:0;font-size:.78rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--red)">🏆 Off-Season</p>
+    <p style="margin:.5rem 0 .35rem;font-family:var(--font-display);font-size:2.4rem;line-height:.95;letter-spacing:.02em;color:#111">
+      Planning the next Bulldogs season
     </p>
     <p style="margin:0;color:#444;font-size:.95rem">
-      Every player highlight + season bests · <span style="color:var(--red);font-weight:700">Read the 2026 Recap →</span>
+      2026 schedule, roster, and full season recap are archived on <span style="color:var(--red);font-weight:700">Past Seasons →</span>
     </p>
   </a>
 
-  <h2 style="margin:0 0 1rem">Season So Far</h2>
-  <div class="cards" style="margin-top:0;margin-bottom:2rem">
-    <div class="card">
-      <p style="margin:0 0 .35rem;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--red)">Record</p>
-      <p style="margin:0;font-family:var(--font-display);font-size:3rem;line-height:1">{{ site.data.stats.team_record }}</p>
-      <p style="margin:.4rem 0 0;color:#6b6b6b;font-size:.9rem">through {{ site.data.stats.games_played }} games</p>
-    </div>
-    <div class="card">
-      <p style="margin:0 0 .35rem;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--red)">Runs</p>
-      <p style="margin:0;font-family:var(--font-display);font-size:2.25rem;line-height:1.05">{{ site.data.stats.runs_for }} <span style="color:#6b6b6b">/</span> {{ site.data.stats.runs_against }}</p>
-      <p style="margin:.4rem 0 0;color:#6b6b6b;font-size:.9rem">scored / allowed</p>
-    </div>
-    <div class="card">
-      <p style="margin:0 0 .35rem;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--red)">Team Plate</p>
-      <p style="margin:0;font-family:var(--font-display);font-size:2.25rem;line-height:1.05">{{ site.data.stats.team_avg }} <span style="color:#6b6b6b;font-size:1rem">AVG</span></p>
-      <p style="margin:.4rem 0 0;color:#6b6b6b;font-size:.9rem">{{ site.data.stats.team_obp }} OBP</p>
-    </div>
-    <a class="card" href="{{ '/stats/' | relative_url }}">
-      <p style="margin:0 0 .5rem;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--red)">Top AVG</p>
-      {% for L in site.data.stats.leaders_avg %}
-      <p style="margin:.1rem 0;display:flex;justify-content:space-between;align-items:baseline">
-        <span><span style="color:#6b6b6b">#{{ L.jersey }}</span> {% if L.hidden %}<span style="color:#999">—</span>{% else %}{{ L.name }}{% endif %}</span>
-        <span style="font-family:var(--font-display);font-size:1.15rem">{{ L.val }}</span>
-      </p>
-      {% endfor %}
-      <p style="margin:.5rem 0 0"><span class="card__arrow">→ All stats</span></p>
-    </a>
-  </div>
-
   <div class="cards">
-    <a class="card" href="{{ '/assets/calendar/haxtun-bulldogs-2026.ics' | relative_url }}" download>
-      <h3>📅 Add to Calendar</h3>
-      <p>Every game on your phone. Reminders 1 day + 2 hours before.</p>
-      <p><span class="card__arrow">↓</span></p>
+    <a class="card" href="{{ '/past-seasons/' | relative_url }}">
+      <h3>📚 Past Seasons</h3>
+      <p>2026 schedule, results, roster, stats, and full recap.</p>
+      <p><span class="card__arrow">→</span></p>
     </a>
-    <a class="card" href="https://web.gc.com/teams/kbN4LzDekbO6/live?pid=Copy&amp;c=team_share_link" target="_blank" rel="noopener">
-      <h3>📲 Follow Live on GameChanger</h3>
-      <p>Live pitch-by-pitch updates during every game. Box scores, plays, and season stats — free in the GameChanger app or on the web.</p>
-      <p><span class="card__arrow">↗</span></p>
+    <a class="card" href="{{ '/rules/' | relative_url }}">
+      <h3>Rules</h3>
+      <p>League rules, NFHS quick reference, and common-call clarifications for fans.</p>
+      <p><span class="card__arrow">→</span></p>
+    </a>
+    <a class="card" href="{{ '/practices/' | relative_url }}">
+      <h3>Practices</h3>
+      <p>Practice plan reference for when sessions resume.</p>
+      <p><span class="card__arrow">→</span></p>
+    </a>
+    <a class="card" href="{{ '/drills/' | relative_url }}">
+      <h3>🥎 Drills at Home</h3>
+      <p>Skills work for 9-12 softball players. Mix of step-by-step guides and short video drills.</p>
+      <p><span class="card__arrow">→</span></p>
+    </a>
+    <a class="card" href="{{ '/news/' | relative_url }}">
+      <h3>News</h3>
+      <p>Team announcements and game recaps.</p>
+      <p><span class="card__arrow">→</span></p>
     </a>
     <button class="card" type="button" id="share-btn"
             style="font:inherit;text-align:left;width:100%;cursor:pointer"
@@ -104,41 +59,6 @@ permalink: /
       <p id="share-text">Send the link to other Bulldogs families.</p>
       <p><span class="card__arrow" id="share-arrow">↗</span></p>
     </button>
-    <a class="card" href="{{ '/schedule/' | relative_url }}">
-      <h3>Schedule</h3>
-      <p>Full {{ site.season }} season + tournament dates</p>
-      <p><span class="card__arrow">→</span></p>
-    </a>
-    <a class="card" href="{{ '/league-rules/' | relative_url }}">
-      <h3>League Rules</h3>
-      <p>The 18 highlighted rules for {{ site.season }}</p>
-      <p><span class="card__arrow">→</span></p>
-    </a>
-    <a class="card" href="{{ '/nfhs-rules/' | relative_url }}">
-      <h3>NFHS Rules</h3>
-      <p>Quick reference + official links</p>
-      <p><span class="card__arrow">→</span></p>
-    </a>
-    <a class="card" href="{{ '/practices/' | relative_url }}">
-      <h3>Practices</h3>
-      <p>This week's plan + what to bring</p>
-      <p><span class="card__arrow">→</span></p>
-    </a>
-    <a class="card" href="{{ '/drills/' | relative_url }}">
-      <h3>🥎 Drills at Home</h3>
-      <p>Skills work for 9-12 softball players. Mix of step-by-step guides and short video drills.</p>
-      <p><span class="card__arrow">→</span></p>
-    </a>
-    <a class="card" href="{{ '/roster/' | relative_url }}">
-      <h3>Roster</h3>
-      <p>The {{ site.season }} Bulldogs lineup</p>
-      <p><span class="card__arrow">→</span></p>
-    </a>
-    <a class="card" href="{{ '/news/' | relative_url }}">
-      <h3>Announcements</h3>
-      <p>Latest team updates</p>
-      <p><span class="card__arrow">→</span></p>
-    </a>
     <a class="card" href="https://suno.com/playlist/0b6dfdc6-6df1-41eb-bdf9-360bcb7ff4aa" target="_blank" rel="noopener">
       <h3>🎵 Bulldog Warm Up Playlist</h3>
       <p>Get hyped before first pitch.</p>
@@ -190,17 +110,6 @@ permalink: /
       });
     })();
   </script>
-
-  <h2>Season Leaders <span style="color:#6b6b6b;font-weight:400;font-size:.7em">Through {{ site.data.stats.games_played }} games</span></h2>
-  <ul class="news-list">
-    <li><strong>Tyndle M.</strong> — team-leading 9 hits, .429 AVG, .949 OPS, tied for team-leading 6 RBI</li>
-    <li><strong>Pyper J.</strong> — tied for team-leading 6 RBI on 3 hits</li>
-    <li><strong>Phoenix B.</strong> — team-leading 10 runs scored, 13 stolen bases (13-for-14), the team's only home run, and 14 strikeouts over 6.2 innings on the mound</li>
-    <li><strong>Palmer H.</strong> — 89 putouts and 12 walks (both team highs); .609 OBP</li>
-    <li><strong>Kortlyn C.</strong> — team-leading 46 strikeouts in 20.0 innings pitched</li>
-    <li><strong>Kortlyn C.</strong> — 12.0 innings pitched, 29 strikeouts in the circle</li>
-  </ul>
-  <p style="color:#6b6b6b;font-size:.85rem;margin-top:.4rem"><a href="{{ '/stats/' | relative_url }}">Full team stats →</a></p>
 
   <h2>Latest Announcements</h2>
   <ul class="news-list">
