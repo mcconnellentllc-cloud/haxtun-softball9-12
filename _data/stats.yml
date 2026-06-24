@@ -5,15 +5,15 @@
 #
 # #23 is name-withheld on the public site (hidden: true) — do NOT add her name here.
 
-last_updated: 2026-06-22
-games_played: 10
+last_updated: 2026-06-23
+games_played: 11
 
 # Team-level season snapshot (used by the home page).
-team_record: "2-8"
+team_record: "2-9"
 team_avg: ".213"
 team_obp: ".506"
-runs_for: 39
-runs_against: 72
+runs_for: 41
+runs_against: 75
 
 # Top 3 batters by AVG (auto-derived from this CSV).
 leaders_avg:
