@@ -44,6 +44,7 @@ nav:
   - { title: "Drills",      url: "/drills/" }
   - { title: "Standings",   url: "/standings/" }
   - { title: "Stats",       url: "/stats/" }
+  - { title: "2026 Recap",  url: "/season-2026/" }
   - { title: "News",        url: "/news/" }
 
 exclude:
