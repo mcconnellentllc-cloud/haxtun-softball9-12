@@ -156,20 +156,18 @@ permalink: /past-seasons/
 </div>
 
 <h3>Team Photos</h3>
-{% assign photos = site.static_files | where_exp: "f", "f.path contains '/assets/img/gallery/2026/'" %}
-{% assign photo_count = 0 %}
-{% for p in photos %}{% assign ext = p.extname | downcase %}{% if ext == ".jpg" or ext == ".jpeg" or ext == ".png" or ext == ".webp" %}{% assign photo_count = photo_count | plus: 1 %}{% endif %}{% endfor %}
-{% if photo_count > 0 %}
-<div class="gallery-grid">
-  {% for p in photos %}
-    {% assign ext = p.extname | downcase %}
-    {% if ext == ".jpg" or ext == ".jpeg" or ext == ".png" or ext == ".webp" %}
-    <a href="{{ p.path | relative_url }}" target="_blank" rel="noopener">
-      <img src="{{ p.path | relative_url }}" alt="2026 Bulldogs" loading="lazy">
-    </a>
-    {% endif %}
-  {% endfor %}
-</div>
+{% assign all_photos = site.static_files | where_exp: "f", "f.path contains '/assets/img/gallery/2026/'" %}
+{% assign gallery_photos = "" | split: "" %}
+{% for p in all_photos %}{% assign ext = p.extname | downcase %}{% if ext == ".jpg" or ext == ".jpeg" or ext == ".png" or ext == ".webp" %}{% assign gallery_photos = gallery_photos | push: p %}{% endif %}{% endfor %}
+{% if gallery_photos.size > 0 %}
+{% assign cover = gallery_photos | first %}
+<a class="gallery-card" href="{{ '/gallery-2026/' | relative_url }}">
+  <div class="gallery-card__image" style="background-image:url('{{ cover.path | relative_url }}')"></div>
+  <div class="gallery-card__overlay">
+    <div class="gallery-card__title">View {{ gallery_photos.size }} Team Photos</div>
+    <div class="gallery-card__sub">Tap to open the gallery →</div>
+  </div>
+</a>
 <p style="color:#6b6b6b;font-size:.85rem">Posted only with a signed parental media release on file.</p>
 {% else %}
 <p style="color:#6b6b6b">Coming soon — approved 2026 photos will appear here. Posted only with a signed parental media release on file.</p>
