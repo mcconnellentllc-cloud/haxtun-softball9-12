@@ -881,6 +881,30 @@ h3 { font-size: 1.4rem; margin-top: 1.75rem; }
   color: var(--muted);
 }
 
+/* ====================== Stats Archive list ====================== */
+.archive-list {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0;
+}
+.archive-list li {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  margin-bottom: .6rem;
+  background: var(--bone);
+  transition: border-color .15s ease, transform .1s ease;
+}
+.archive-list li:hover { border-color: var(--red); transform: translateX(2px); }
+.archive-list li a { color: var(--ink); text-decoration: none; }
+.archive-list li a:hover { text-decoration: underline; }
+.archive-list li strong:first-child {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--red);
+  margin-right: .25rem;
+}
+
 /* ====================== Gallery card (past-seasons preview) ====================== */
 .gallery-card {
   position: relative;
