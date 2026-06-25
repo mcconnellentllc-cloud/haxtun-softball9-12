@@ -1,0 +1,68 @@
+<h3 id="batting">Batting</h3>
+<div style="overflow-x:auto">
+<table class="standings-table">
+  <thead>
+    <tr>
+      <th>#</th><th>Player</th>
+      <th>PA</th><th>AB</th><th>H</th><th>R</th><th>RBI</th>
+      <th>BB</th><th>HBP</th><th>SO</th>
+      <th>OBP</th><th>OPS</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in include.season.batting %}
+    <tr>
+      <td><strong>#{{ p.jersey }}</strong></td>
+      <td>{% if p.hidden %}<span style="color:#999">— withheld —</span>{% else %}{{ p.name }}{% endif %}</td>
+      <td>{{ p.pa }}</td><td>{{ p.ab }}</td><td>{{ p.h }}</td><td>{{ p.r }}</td><td>{{ p.rbi }}</td>
+      <td>{{ p.bb }}</td><td>{{ p.hbp }}</td><td>{{ p.so }}</td>
+      <td>{{ p.obp }}</td><td>{{ p.ops }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h3 id="pitching">Pitching</h3>
+<div style="overflow-x:auto">
+<table class="standings-table">
+  <thead>
+    <tr>
+      <th>#</th><th>Player</th>
+      <th>GP</th><th>IP</th><th>SO</th><th>BB</th>
+      <th>ERA</th><th>WHIP</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in include.season.pitching %}
+    <tr>
+      <td><strong>#{{ p.jersey }}</strong></td>
+      <td>{% if p.hidden %}<span style="color:#999">— withheld —</span>{% else %}{{ p.name }}{% endif %}</td>
+      <td>{{ p.gp }}</td><td>{{ p.ip }}</td><td>{{ p.so }}</td><td>{{ p.bb }}</td>
+      <td>{{ p.era }}</td><td>{{ p.whip }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h3 id="fielding">Fielding</h3>
+<div style="overflow-x:auto">
+<table class="standings-table">
+  <thead>
+    <tr>
+      <th>#</th><th>Player</th>
+      <th>TC</th><th>PO</th><th>A</th><th>E</th><th>FPCT</th><th>Inn.</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in include.season.fielding %}
+    <tr>
+      <td><strong>#{{ p.jersey }}</strong></td>
+      <td>{% if p.hidden %}<span style="color:#999">— withheld —</span>{% else %}{{ p.name }}{% endif %}</td>
+      <td>{{ p.tc }}</td><td>{{ p.po }}</td><td>{{ p.a }}</td><td>{{ p.e }}</td><td>{{ p.fpct }}</td><td>{{ p.inn_total }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

@@ -1,0 +1,34 @@
+---
+layout: default
+title: Stats Archive
+eyebrow: Bulldogs History
+subtitle: Full per-player batting, pitching, and fielding for every Haxtun Bulldogs Softball season.
+permalink: /stats-archive/
+---
+
+{% assign seasons = site.data.seasons | sort %}
+{% assign season_count = seasons.size %}
+
+<p style="margin-top:0">
+  <a href="{{ '/past-seasons/' | relative_url }}">← Back to Past Seasons</a>
+</p>
+
+{% if season_count > 0 %}
+<p>{{ season_count }} season{% if season_count != 1 %}s{% endif %} on file. Each link opens a full stat sheet — batting, pitching, fielding.</p>
+<ul class="archive-list">
+  {% for entry in seasons reversed %}
+    {% assign yr = entry[0] %}
+    {% assign s = entry[1] %}
+    <li>
+      <a href="{{ '/season-' | append: yr | append: '/' | relative_url }}">
+        <strong>{{ yr }}</strong>{% if s.division %} — {{ s.division }} Division{% endif %}
+      </a>
+      {% if s.team_record %} · <strong>{{ s.team_record }}</strong>{% endif %}
+      {% if s.head_coach %} · Coach {{ s.head_coach }}{% endif %}
+    </li>
+  {% endfor %}
+</ul>
+<p style="color:#6b6b6b;font-size:.85rem">Privacy: per-player rows for jersey numbers under a family-withhold request display as "— withheld —". Stats stay in the table either way.</p>
+{% else %}
+<p>No seasons archived yet.</p>
+{% endif %}
