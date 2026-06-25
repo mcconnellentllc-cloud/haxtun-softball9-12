@@ -156,7 +156,24 @@ permalink: /past-seasons/
 </div>
 
 <h3>Team Photos</h3>
+{% assign photos = site.static_files | where_exp: "f", "f.path contains '/assets/img/gallery/2026/'" %}
+{% assign photo_count = 0 %}
+{% for p in photos %}{% assign ext = p.extname | downcase %}{% if ext == ".jpg" or ext == ".jpeg" or ext == ".png" or ext == ".webp" %}{% assign photo_count = photo_count | plus: 1 %}{% endif %}{% endfor %}
+{% if photo_count > 0 %}
+<div class="gallery-grid">
+  {% for p in photos %}
+    {% assign ext = p.extname | downcase %}
+    {% if ext == ".jpg" or ext == ".jpeg" or ext == ".png" or ext == ".webp" %}
+    <a href="{{ p.path | relative_url }}" target="_blank" rel="noopener">
+      <img src="{{ p.path | relative_url }}" alt="2026 Bulldogs" loading="lazy">
+    </a>
+    {% endif %}
+  {% endfor %}
+</div>
+<p style="color:#6b6b6b;font-size:.85rem">Posted only with a signed parental media release on file.</p>
+{% else %}
 <p style="color:#6b6b6b">Coming soon — approved 2026 photos will appear here. Posted only with a signed parental media release on file.</p>
+{% endif %}
 
 <h3>Recap, Stats, Bracket</h3>
 <ul>
