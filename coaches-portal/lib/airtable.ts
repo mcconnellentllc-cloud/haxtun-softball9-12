@@ -119,6 +119,7 @@ export interface PortalState {
   proposals: Record<string, unknown>;
   gameplans: Record<string, unknown>;
   notes: Record<string, unknown>;
+  checklist: Record<string, unknown>;
 }
 
 const STATE_KEYS = [
@@ -127,6 +128,7 @@ const STATE_KEYS = [
   "proposals",
   "gameplans",
   "notes",
+  "checklist",
 ] as const;
 type StateKey = (typeof STATE_KEYS)[number];
 
@@ -154,6 +156,7 @@ export async function getState(): Promise<PortalState> {
     proposals: safeParse(map["proposals"]),
     gameplans: safeParse(map["gameplans"]),
     notes: safeParse(map["notes"]),
+    checklist: safeParse(map["checklist"]),
   };
 }
 

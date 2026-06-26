@@ -61,6 +61,8 @@ type Proposals = Record<string, WeekProposals>;
 type GamePlans = Record<string, GamePlanAB>;
 // week key (YYYY-MM-DD) -> shared coaches note for that game
 type Notes = Record<string, string>;
+type ChecklistEntry = { checked: boolean; by?: string; at?: string };
+type Checklist = Record<string, ChecklistEntry>;
 
 /* ---------------------------- Constants -------------------------- */
 
@@ -70,7 +72,7 @@ const COACHES = ["Emily", "Jordan", "Kyle"] as const;
 const INNINGS = 5;
 const BATTING_SLOTS = 12;
 const SLOTS = Array.from({ length: BATTING_SLOTS }, (_, i) => String(i + 1));
-const TABS = ["roster", "depth", "calendar", "compare", "plan", "stats"] as const;
+const TABS = ["roster", "depth", "calendar", "compare", "plan", "stats", "gameday"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -80,6 +82,7 @@ const TAB_LABELS: Record<Tab, string> = {
   compare: "Propose",
   stats: "Stats",
   plan: "Game Plan",
+  gameday: "Game Day",
 };
 
 // Playing-time minimum: every girl should get either 2 field innings + 1
@@ -265,6 +268,28 @@ function normalizeNotes(raw: unknown): Notes {
   return out;
 }
 
+function normalizeChecklist(raw: unknown): Checklist {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Record<
+    string,
+    unknown
+  >;
+  const out: Checklist = {};
+  for (const key of Object.keys(src)) {
+    const v = src[key];
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      const r = v as Record<string, unknown>;
+      if (r.checked) {
+        out[key] = {
+          checked: true,
+          by: typeof r.by === "string" ? r.by : undefined,
+          at: typeof r.at === "string" ? r.at : undefined,
+        };
+      }
+    }
+  }
+  return out;
+}
+
 async function putState(path: string, body: unknown, coach: string | null) {
   const res = await fetch(path, {
     method: "PUT",
@@ -296,6 +321,7 @@ export default function Home() {
     normalizeGamePlans({}),
   );
   const [notes, setNotes] = useState<Notes>(() => normalizeNotes({}));
+  const [checklist, setChecklist] = useState<Checklist>(() => normalizeChecklist({}));
   const [tab, setTab] = useState<Tab>("roster");
   const [coach, setCoach] = useState<string | null>(null);
 
@@ -329,6 +355,7 @@ export default function Home() {
         setProposals(normalizeProposals(sData.proposals));
         setGameplans(normalizeGamePlans(sData.gameplans));
         setNotes(normalizeNotes(sData.notes));
+        setChecklist(normalizeChecklist(sData.checklist));
       } catch (err) {
         if (!cancelled)
           setError(err instanceof Error ? err.message : "Failed to load");
@@ -414,6 +441,21 @@ export default function Home() {
       }
     },
     [gameplans, coach],
+  );
+
+  // Persist the game-day checklist; roll back on failure.
+  const saveChecklist = useCallback(
+    async (next: Checklist) => {
+      const prev = checklist;
+      setChecklist(next);
+      try {
+        await putState("/api/state/checklist", next, coach);
+      } catch (err) {
+        setChecklist(prev);
+        setError(err instanceof Error ? err.message : "Save failed");
+      }
+    },
+    [checklist, coach],
   );
 
   // Persist per-game coaches notes; roll back on failure.
@@ -512,8 +554,10 @@ export default function Home() {
             onChange={saveGameplans}
             onSaveNote={saveNote}
           />
-        ) : (
+        ) : tab === "stats" ? (
           <StatsPanel players={players} />
+        ) : (
+          <GameDayPanel checklist={checklist} coach={coach} onChange={saveChecklist} />
         )}
       </div>
     </main>
@@ -4617,5 +4661,285 @@ function EmptyRoster({ what }: { what: string }) {
     <div className="rounded border border-neutral-800 bg-neutral-900 p-6 text-neutral-400">
       Seed the roster before building the {what}.
     </div>
+  );
+}
+
+/* ----------------------------- Game Day ----------------------------- */
+
+type ChecklistItem = { id: string; label: string };
+type ChecklistGroup = { id: string; label: string; items: ChecklistItem[] };
+
+const HOME_GROUPS: ChecklistGroup[] = [
+  {
+    id: "home-field",
+    label: "Field Prep",
+    items: [
+      { id: "home-field-drag", label: "Field dragged / raked smooth" },
+      { id: "home-field-chalk-foul", label: "Foul lines chalked" },
+      { id: "home-field-chalk-batter", label: "Batter's boxes chalked" },
+      { id: "home-field-chalk-coach", label: "Coach's boxes chalked" },
+      { id: "home-field-plate", label: "Home plate cleaned" },
+    ],
+  },
+  {
+    id: "home-bases",
+    label: "Bases",
+    items: [
+      { id: "home-bases-set", label: "Bases set (1B, 2B, 3B, home)" },
+      {
+        id: "home-bases-safety",
+        label: "Safety base in place at 1B (orange double bag)",
+      },
+      { id: "home-bases-rubber", label: "Pitching rubber set" },
+    ],
+  },
+  {
+    id: "home-equipment",
+    label: "Equipment in Dugout",
+    items: [
+      { id: "home-eq-bats", label: "Bats" },
+      { id: "home-eq-balls", label: "Game balls (3-4 clean)" },
+      { id: "home-eq-helmets", label: "Helmets" },
+      {
+        id: "home-eq-catcher",
+        label: "Catcher's gear (2 sets if available)",
+      },
+    ],
+  },
+  {
+    id: "home-umpires",
+    label: "Umpires",
+    items: [
+      { id: "home-umps-in", label: "Umpires checked in" },
+      {
+        id: "home-umps-accom",
+        label:
+          "Special accommodations discussed (weather, time limits, mercy rule, ground rules)",
+      },
+    ],
+  },
+  {
+    id: "home-stats",
+    label: "Stats / Scorekeeping",
+    items: [
+      { id: "home-stats-keeper", label: "Stat keeper assigned" },
+      { id: "home-stats-gc", label: "GameChanger started" },
+    ],
+  },
+  {
+    id: "home-coaches",
+    label: "Coaches Bag",
+    items: [
+      { id: "home-coach-pen", label: "Pen + paper" },
+      { id: "home-coach-note", label: "Note bag" },
+      { id: "home-coach-med", label: "Medical bag" },
+    ],
+  },
+];
+
+const AWAY_GROUPS: ChecklistGroup[] = [
+  {
+    id: "away-stats",
+    label: "Stats / Scorekeeping",
+    items: [
+      { id: "away-stats-keeper", label: "Book keeper / stat keeper assigned" },
+      { id: "away-stats-gc", label: "GameChanger started" },
+    ],
+  },
+  {
+    id: "away-dugout",
+    label: "Dugout",
+    items: [
+      { id: "away-dugout-water", label: "Dugout water" },
+      { id: "away-dugout-speaker", label: "Speaker" },
+    ],
+  },
+  {
+    id: "away-equipment",
+    label: "Equipment",
+    items: [
+      { id: "away-eq-bats", label: "Bats" },
+      { id: "away-eq-balls", label: "Balls" },
+      { id: "away-eq-helmets", label: "Helmets" },
+      {
+        id: "away-eq-catcher",
+        label: "Catcher's gear (2 sets if needed)",
+      },
+    ],
+  },
+  {
+    id: "away-coaches",
+    label: "Coaches Bag",
+    items: [
+      { id: "away-coach-pen", label: "Pen + paper" },
+      { id: "away-coach-note", label: "Note bag" },
+      { id: "away-coach-med", label: "Medical bag" },
+    ],
+  },
+];
+
+function GameDayPanel({
+  checklist,
+  coach,
+  onChange,
+}: {
+  checklist: Checklist;
+  coach: string | null;
+  onChange: (next: Checklist) => void | Promise<void>;
+}) {
+  const [mode, setMode] = useState<"home" | "away">("home");
+  const groups = mode === "home" ? HOME_GROUPS : AWAY_GROUPS;
+  const allIds = groups.flatMap((g) => g.items.map((i) => i.id));
+  const doneCount = allIds.filter((id) => checklist[id]?.checked).length;
+  const allDone = allIds.length > 0 && doneCount === allIds.length;
+
+  const toggle = (id: string) => {
+    const next = { ...checklist };
+    if (next[id]?.checked) {
+      delete next[id];
+    } else {
+      next[id] = {
+        checked: true,
+        by: coach ?? undefined,
+        at: new Date().toISOString(),
+      };
+    }
+    onChange(next);
+  };
+
+  const resetMode = () => {
+    if (
+      !window.confirm(
+        `Reset every ${mode === "home" ? "home" : "away"}-game item? This clears them for the next game.`,
+      )
+    )
+      return;
+    const next = { ...checklist };
+    for (const id of allIds) delete next[id];
+    onChange(next);
+  };
+
+  const checkAll = () => {
+    const next = { ...checklist };
+    const stamp = {
+      checked: true as const,
+      by: coach ?? undefined,
+      at: new Date().toISOString(),
+    };
+    for (const id of allIds) next[id] = stamp;
+    onChange(next);
+  };
+
+  return (
+    <section className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex overflow-hidden rounded border border-neutral-700">
+          {(["home", "away"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={
+                "px-4 py-1.5 font-display text-sm tracking-wider transition-colors " +
+                (mode === m
+                  ? "bg-red-600 text-white"
+                  : "bg-neutral-900 text-neutral-300 hover:bg-neutral-800")
+              }
+            >
+              {m === "home" ? "Home" : "Away"}
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-neutral-400">
+          <span
+            className={allDone ? "text-emerald-400" : "text-neutral-200"}
+          >
+            {doneCount}/{allIds.length}
+          </span>{" "}
+          ready
+        </p>
+      </div>
+
+      <p className="text-sm text-neutral-400">
+        Shared across all coaches — when one of you checks an item, the others
+        see it on their next refresh. Each box stamps who checked it and when.
+      </p>
+
+      <div className="space-y-5">
+        {groups.map((g) => (
+          <div
+            key={g.id}
+            className="rounded border border-neutral-800 bg-neutral-900"
+          >
+            <div className="border-b border-neutral-800 px-4 py-2">
+              <h3 className="font-display text-lg tracking-wider text-neutral-100">
+                {g.label}
+              </h3>
+            </div>
+            <ul className="divide-y divide-neutral-800">
+              {g.items.map((it) => {
+                const entry = checklist[it.id];
+                const isChecked = !!entry?.checked;
+                return (
+                  <li
+                    key={it.id}
+                    className={
+                      "flex items-start gap-3 px-4 py-3 transition-colors " +
+                      (isChecked ? "bg-emerald-950/20" : "")
+                    }
+                  >
+                    <label className="flex flex-1 cursor-pointer items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggle(it.id)}
+                        className="mt-1 h-5 w-5 cursor-pointer accent-red-600"
+                      />
+                      <span
+                        className={
+                          "flex-1 text-sm " +
+                          (isChecked
+                            ? "text-neutral-400 line-through"
+                            : "text-neutral-100")
+                        }
+                      >
+                        {it.label}
+                      </span>
+                    </label>
+                    {entry?.by && entry?.at && (
+                      <span className="text-xs text-neutral-500">
+                        {entry.by} ·{" "}
+                        {new Date(entry.at).toLocaleTimeString([], {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-3 border-t border-neutral-800 pt-4">
+        <button
+          type="button"
+          onClick={checkAll}
+          disabled={allDone}
+          className="rounded border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 hover:border-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Check All
+        </button>
+        <button
+          type="button"
+          onClick={resetMode}
+          className="rounded border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 hover:border-red-600"
+        >
+          Reset for Next Game
+        </button>
+      </div>
+    </section>
   );
 }
