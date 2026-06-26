@@ -4153,6 +4153,8 @@ type RawField = {
 type StatsData = {
   last_updated: string | null;
   games_played: number | null;
+  team_record?: string | null;
+  season?: string;
   batting: RawBat[];
   pitching: RawPitch[];
   fielding: RawField[];
@@ -4213,6 +4215,8 @@ function StatsPanel({ players }: { players: Player[] }) {
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<string>("current");
+  const [pastSeasons, setPastSeasons] = useState<string[]>([]);
 
   // Resolve display names from the private Airtable roster by jersey, so the
   // name-withheld player (#23, "#23" in the public file) shows her real name
@@ -4234,7 +4238,31 @@ function StatsPanel({ players }: { players: Player[] }) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/stats", { cache: "no-store" });
+        const res = await fetch("/api/seasons", { cache: "no-store" });
+        if (res.ok) {
+          const j = (await res.json()) as { seasons: string[] };
+          if (!cancelled) setPastSeasons(j.seasons ?? []);
+        }
+      } catch {
+        /* dropdown still works; just no past-season entries */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    (async () => {
+      try {
+        const url =
+          selectedSeason === "current"
+            ? "/api/stats"
+            : `/api/stats?season=${encodeURIComponent(selectedSeason)}`;
+        const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) throw new Error(`Stats load failed (${res.status})`);
         const d = (await res.json()) as StatsData;
         if (!cancelled) setData(d);
@@ -4248,14 +4276,47 @@ function StatsPanel({ players }: { players: Player[] }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedSeason]);
 
-  if (loading) return <p className="text-neutral-400">Loading…</p>;
+  const seasonPicker = (
+    <div className="flex items-center gap-2 text-sm">
+      <label htmlFor="season-select" className="text-neutral-400">
+        Season:
+      </label>
+      <select
+        id="season-select"
+        value={selectedSeason}
+        onChange={(e) => setSelectedSeason(e.target.value)}
+        className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-100 focus:border-red-500 focus:outline-none"
+      >
+        <option value="current">Current</option>
+        {pastSeasons.map((y) => (
+          <option key={y} value={y}>
+            {y} season
+          </option>
+        ))}
+      </select>
+      {selectedSeason !== "current" && (
+        <span className="text-xs text-amber-400">archived</span>
+      )}
+    </div>
+  );
+
+  if (loading)
+    return (
+      <section className="space-y-5">
+        {seasonPicker}
+        <p className="text-neutral-400">Loading…</p>
+      </section>
+    );
   if (error)
     return (
-      <div className="rounded border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">
-        {error}
-      </div>
+      <section className="space-y-5">
+        {seasonPicker}
+        <div className="rounded border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+          {error}
+        </div>
+      </section>
     );
   if (!data) return null;
 
@@ -4305,10 +4366,27 @@ function StatsPanel({ players }: { players: Player[] }) {
 
   return (
     <section className="space-y-5">
+      {seasonPicker}
       <p className="text-sm text-neutral-400">
         Ranked by a composite score — each stat normalized to the roster&rsquo;s
         best (0–1), then averaged. Players with no game action sort to the
         bottom.
+        {selectedSeason !== "current" && (
+          <>
+            {" "}
+            Viewing the{" "}
+            <span className="text-amber-300">{selectedSeason} season</span>{" "}
+            archive
+            {data.team_record && (
+              <>
+                {" "}
+                — final record{" "}
+                <span className="text-neutral-200">{data.team_record}</span>
+              </>
+            )}
+            .
+          </>
+        )}
         {data.games_played != null && (
           <>
             {" "}
